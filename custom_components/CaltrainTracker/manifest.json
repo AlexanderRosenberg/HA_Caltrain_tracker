@@ -1,0 +1,14 @@
+{
+  "domain": "caltrain_tracker",
+  "name": "Caltrain Tracker",
+  "codeowners": ["@alexrosenberg"],
+  "config_flow": true,
+  "documentation": "https://github.com/alexrosenberg/HA_Caltrain_tracker",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": [
+    "gtfs-realtime-bindings==1.0.0",
+    "protobuf>=4.0.0"
+  ],
+  "version": "0.1.0"
+}

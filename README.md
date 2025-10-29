@@ -1,2 +1,234 @@
-# HA_Caltrain_tracker
-Home Assistant enabled Caltrain integration
+# Caltrain Tracker for Home Assistant
+
+A custom Home Assistant integration that provides real-time Caltrain train tracking, arrival predictions, and service alerts using the 511 SF Bay API.
+
+## Features
+
+- 🚂 **Real-time ETAs**: Get minute-by-minute updates for next arriving trains
+- 📍 **Multiple Stations**: Track San Antonio and Palo Alto stations (both directions)
+- ⚠️ **Service Alerts**: Stay informed about delays and service disruptions
+- 🔄 **Auto-updating**: Data refreshes every 30 seconds
+- 🎨 **Easy Setup**: Simple configuration flow with API key validation
+
+## Installation
+
+### Step 1: Copy Files
+
+Copy the `custom_components/CaltrainTracker` folder to your Home Assistant `custom_components` directory:
+
+```
+/config/custom_components/caltrain_tracker/
+```
+
+Your file structure should look like:
+```
+config/
+└── custom_components/
+    └── caltrain_tracker/
+        ├── __init__.py
+        ├── config_flow.py
+        ├── const.py
+        ├── coordinator.py
+        ├── manifest.json
+        ├── sensor.py
+        ├── strings.json
+        └── translations/
+            └── en.json
+```
+
+### Step 2: Get Your 511 API Key
+
+1. Go to https://511.org/open-data/token
+2. Sign up for a free API key (no credit card required)
+3. Save your API key - you'll need it for setup
+
+### Step 3: Restart Home Assistant
+
+Restart Home Assistant to load the new integration.
+
+### Step 4: Add the Integration
+
+1. Go to **Settings** → **Devices & Services**
+2. Click **+ Add Integration**
+3. Search for "Caltrain Tracker"
+4. Enter your 511 API key when prompted
+5. Select which stations you want to track
+6. Click Submit
+
+## Usage
+
+### Sensors Created
+
+The integration creates one sensor for each selected station:
+
+- `sensor.caltrain_palo_alto_northbound`
+- `sensor.caltrain_palo_alto_southbound`
+- `sensor.caltrain_san_antonio_northbound`
+- `sensor.caltrain_san_antonio_southbound`
+
+### Sensor States
+
+- **Number** (e.g., `8`): Minutes until next train arrives
+- **"No trains"**: No upcoming trains in the schedule
+
+### Sensor Attributes
+
+Each sensor includes detailed attributes:
+
+```yaml
+station_name: "Palo Alto"
+direction: "Northbound"
+zone: 4
+latitude: 37.4429
+longitude: -122.1643
+stop_id: "70171"
+next_trains:
+  - trip_id: "132"
+    route: "Local Weekday"
+    eta_minutes: 8
+    arrival_time: "02:15 PM"
+  - trip_id: "416"
+    route: "Limited"
+    eta_minutes: 38
+    arrival_time: "02:45 PM"
+train_count: 2
+alerts: []
+alert_count: 0
+last_update: "2025-10-29 14:25:00"
+```
+
+## Example Automations
+
+### Departure Notification
+
+Get notified when your train is 10 minutes away:
+
+```yaml
+automation:
+  - alias: "Caltrain Departure Alert"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.caltrain_palo_alto_northbound
+        below: 10
+    condition:
+      - condition: time
+        after: "07:00:00"
+        before: "09:00:00"
+      - condition: state
+        entity_id: person.you
+        state: "home"
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          message: "Your train leaves in {{ states('sensor.caltrain_palo_alto_northbound') }} minutes!"
+          title: "🚂 Caltrain Departure"
+```
+
+### Service Alert Notification
+
+Get notified about service disruptions:
+
+```yaml
+automation:
+  - alias: "Caltrain Service Alert"
+    trigger:
+      - platform: state
+        entity_id: sensor.caltrain_palo_alto_northbound
+        attribute: alert_count
+    condition:
+      - condition: template
+        value_template: "{{ state_attr('sensor.caltrain_palo_alto_northbound', 'alert_count') | int > 0 }}"
+    action:
+      - service: notify.mobile_app_your_phone
+        data:
+          message: "Check Caltrain service alerts"
+          title: "⚠️ Caltrain Alert"
+```
+
+## Lovelace Card Examples
+
+### Simple Entities Card
+
+```yaml
+type: entities
+entities:
+  - entity: sensor.caltrain_palo_alto_northbound
+    name: To SF
+  - entity: sensor.caltrain_palo_alto_southbound
+    name: To SJ
+title: Palo Alto Station
+icon: mdi:train
+```
+
+### Multiple Trains Card
+
+```yaml
+type: markdown
+content: |
+  ## 🚂 Palo Alto Northbound
+  {% set trains = state_attr('sensor.caltrain_palo_alto_northbound', 'next_trains') %}
+  {% if trains %}
+  {% for train in trains %}
+  - **{{ train.route }}** - {{ train.eta_minutes }} min ({{ train.arrival_time }})
+  {% endfor %}
+  {% else %}
+  No trains scheduled
+  {% endif %}
+```
+
+## Troubleshooting
+
+### Integration Won't Load
+
+1. Check that all files are in the correct directory
+2. Restart Home Assistant
+3. Check the logs for errors: **Settings** → **System** → **Logs**
+
+### "Invalid API Key" Error
+
+1. Verify your API key at https://511.org/open-data/token
+2. Make sure there are no extra spaces when pasting
+3. Try generating a new API key
+
+### Sensors Show "Unavailable"
+
+1. Check your internet connection
+2. Verify the 511 API is working: http://api.511.org/transit/tripupdates?api_key=YOUR_KEY&agency=CT
+3. Check the integration logs for errors
+
+### No Trains Showing
+
+- This is normal during late night hours when trains aren't running
+- Caltrain operates roughly 5 AM - 12 AM on weekdays
+- Weekend and holiday schedules vary
+
+## Technical Details
+
+- **Update Interval**: 30 seconds
+- **API**: 511 SF Bay GTFS Realtime
+- **Data Format**: Protocol Buffers (GTFS Realtime)
+- **Dependencies**: `gtfs-realtime-bindings`, `protobuf`
+
+## Future Enhancements
+
+- [ ] Support for all Caltrain stations (32 total)
+- [ ] Device tracker for train GPS positions
+- [ ] Nearest station based on GPS location
+- [ ] Home/Work trip sensors
+- [ ] Custom Lovelace card with Mushroom theme
+- [ ] Historical delay tracking
+
+## Support
+
+For issues, questions, or contributions:
+- GitHub Issues: [Create an issue](https://github.com/alexrosenberg/HA_Caltrain_tracker/issues)
+- Documentation: See `/docs` folder for detailed technical information
+
+## License
+
+This project is provided as-is for personal use.
+
+## Credits
+
+- Data provided by 511 SF Bay (https://511.org/)
+- Caltrain operated by Peninsula Corridor Joint Powers Board

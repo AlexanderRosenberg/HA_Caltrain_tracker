@@ -1,0 +1,28 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Caltrain Tracker",
+        "description": "Enter your 511 SF Bay API key. Get one for free at {api_url}",
+        "data": {
+          "api_key": "511 API Key"
+        }
+      },
+      "stations": {
+        "title": "Select Stations",
+        "description": "Choose which stations to track (you can select multiple)",
+        "data": {
+          "stations": "Stations to Track"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to 511 API. Please check your internet connection.",
+      "invalid_auth": "Invalid API key. Please check your API key and try again.",
+      "unknown": "Unexpected error occurred. Please try again."
+    },
+    "abort": {
+      "already_configured": "This integration is already configured."
+    }
+  }
+}
