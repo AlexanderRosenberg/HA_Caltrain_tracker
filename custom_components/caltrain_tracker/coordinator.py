@@ -20,6 +20,7 @@ from .const import (
     API_AGENCY,
     ENDPOINT_TRIP_UPDATES,
     ENDPOINT_SERVICE_ALERTS,
+    ENDPOINT_VEHICLE_POSITIONS,
     DEFAULT_SCAN_INTERVAL,
     CONF_API_KEY,
 )
@@ -44,19 +45,17 @@ class CaltrainDataCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict:
         """Fetch data from API."""
         try:
-            # Fetch trip updates (contains ETAs)
-            trips = await self.hass.async_add_executor_job(
-                self._fetch_trip_updates
-            )
-            
-            # Fetch service alerts
-            alerts = await self.hass.async_add_executor_job(
-                self._fetch_service_alerts
+            # Fetch all data concurrently
+            trips, alerts, vehicles = await asyncio.gather(
+                self.hass.async_add_executor_job(self._fetch_trip_updates),
+                self.hass.async_add_executor_job(self._fetch_service_alerts),
+                self.hass.async_add_executor_job(self._fetch_vehicle_positions),
             )
             
             return {
                 "trips": trips,
                 "alerts": alerts,
+                "vehicles": vehicles,
                 "last_update": datetime.now(),
             }
         except urllib.error.HTTPError as err:
@@ -162,3 +161,36 @@ class CaltrainDataCoordinator(DataUpdateCoordinator):
         # Sort by arrival time and limit results
         upcoming_trains.sort(key=lambda x: x["arrival_time"])
         return upcoming_trains[:limit]
+
+    def _fetch_vehicle_positions(self) -> list:
+        """Fetch vehicle positions from 511 API (synchronous)."""
+        url = f"{API_BASE_URL}/{ENDPOINT_VEHICLE_POSITIONS}?api_key={self.api_key}&agency={API_AGENCY}"
+        
+        feed = gtfs_realtime_pb2.FeedMessage()
+        
+        try:
+            with urllib.request.urlopen(url, timeout=10) as response:
+                feed.ParseFromString(response.read())
+        except Exception as err:
+            _LOGGER.warning(f"Error fetching vehicle positions: {err}")
+            return []
+        
+        vehicles_data = []
+        for entity in feed.entity:
+            vehicle = entity.vehicle
+            
+            # Only include vehicles with valid position data
+            if vehicle.HasField("position"):
+                vehicles_data.append({
+                    "vehicle_id": vehicle.vehicle.id if vehicle.HasField("vehicle") else entity.id,
+                    "trip_id": vehicle.trip.trip_id if vehicle.HasField("trip") else None,
+                    "route_id": vehicle.trip.route_id if vehicle.HasField("trip") else None,
+                    "latitude": vehicle.position.latitude,
+                    "longitude": vehicle.position.longitude,
+                    "bearing": vehicle.position.bearing if vehicle.position.HasField("bearing") else None,
+                    "speed": vehicle.position.speed if vehicle.position.HasField("speed") else None,
+                    "timestamp": vehicle.timestamp if vehicle.HasField("timestamp") else None,
+                })
+        
+        _LOGGER.debug(f"Fetched {len(vehicles_data)} vehicle positions")
+        return vehicles_data

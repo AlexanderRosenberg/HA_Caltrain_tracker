@@ -5,7 +5,8 @@ A custom Home Assistant integration that provides real-time Caltrain train track
 ## Features
 
 - 🚂 **Real-time ETAs**: Get minute-by-minute updates for next arriving trains
-- 📍 **Multiple Stations**: Track San Antonio and Palo Alto stations (both directions)
+- �️ **Live Train Tracking**: See trains moving on your Home Assistant map in real-time
+- �📍 **Multiple Stations**: Track San Antonio and Palo Alto stations (both directions)
 - ⚠️ **Service Alerts**: Stay informed about delays and service disruptions
 - 🔄 **Auto-updating**: Data refreshes every 30 seconds
 - 🎨 **Easy Setup**: Simple configuration flow with API key validation
@@ -57,7 +58,7 @@ Restart Home Assistant to load the new integration.
 
 ## Usage
 
-### Sensors Created
+### Station Sensors
 
 The integration creates one sensor for each selected station:
 
@@ -65,6 +66,28 @@ The integration creates one sensor for each selected station:
 - `sensor.caltrain_palo_alto_southbound`
 - `sensor.caltrain_san_antonio_northbound`
 - `sensor.caltrain_san_antonio_southbound`
+
+### Device Trackers (NEW in v1.1.0!)
+
+Device trackers are automatically created for all active Caltrain trains on the network:
+
+- `device_tracker.caltrain_train_501`
+- `device_tracker.caltrain_train_135`
+- `device_tracker.caltrain_train_268`
+- etc.
+
+**How to use:**
+1. Add a map card to your dashboard
+2. Device trackers will automatically appear on the map
+3. Watch trains move in real-time as they update every 30 seconds
+
+**Device Tracker Attributes:**
+- GPS coordinates (latitude/longitude)
+- Speed in MPH
+- Bearing/direction
+- Trip ID and route
+- Last seen timestamp
+- Location accuracy (~50m)
 
 ### Sensor States
 

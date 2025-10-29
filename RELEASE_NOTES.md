@@ -1,3 +1,41 @@
+# Release v1.1.0 - Real-Time Train Tracking
+
+## ✨ New Feature: Live Train Positions on Map
+
+Track Caltrain trains in real-time on Home Assistant maps!
+
+### What's New
+
+- 🚆 **Device Tracker Platform**: Trains now appear as device trackers on the map
+- 📍 **GPS Updates**: Train positions update every 30 seconds from 511 API
+- 🧭 **Rich Attributes**: See speed (mph), bearing, trip ID, and route info
+- 🗺️ **Live Movement**: Watch trains move along the tracks in real-time
+
+### Usage
+
+Device trackers are automatically created for all active trains:
+- `device_tracker.caltrain_train_501`
+- `device_tracker.caltrain_train_135`
+- etc.
+
+Add them to your map card to see trains moving live!
+
+### Attributes
+
+Each train tracker includes:
+- GPS coordinates (latitude/longitude)
+- Speed in MPH
+- Bearing/direction
+- Trip ID and route
+- Last seen timestamp
+- 50m location accuracy
+
+### Requirements
+
+No additional setup needed! Just update the integration and device trackers will appear automatically.
+
+---
+
 # Release v1.0.0 - Caltrain Tracker MVP
 
 ## 🎉 Initial Release
