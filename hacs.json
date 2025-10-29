@@ -1,0 +1,7 @@
+{
+  "name": "Caltrain Tracker",
+  "content_in_root": false,
+  "filename": "caltrain_tracker",
+  "render_readme": true,
+  "domains": ["caltrain_tracker"]
+}
