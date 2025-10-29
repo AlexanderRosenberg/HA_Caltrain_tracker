@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation (keep in repo but can exclude if desired)
+# docs/
+
+# Test outputs
+*.log
+
+# Secrets (important!)
+secrets.yaml
+*.key
+*.pem
+
+# Home Assistant specific
+home-assistant.log
+home-assistant_v2.db
+.storage/
+.cloud/
+
+# Test files with API keys (if you add any)
+test_config.py
+local_test.py

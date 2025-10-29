@@ -26,7 +26,7 @@ Your Home Assistant config directory is typically at:
 
 ### 2. Copy Integration Files
 
-Copy the entire `custom_components/CaltrainTracker` folder to your Home Assistant configuration directory:
+Copy the entire `custom_components/caltrain_tracker` folder to your Home Assistant configuration directory:
 
 ```bash
 # From your development directory
@@ -34,16 +34,16 @@ cd /Users/alexrosenberg/Documents/Gitrepos/HA_Caltrain_tracker
 
 # Copy to Home Assistant (adjust path as needed)
 # Option A: If using SSH/SCP
-scp -r custom_components/CaltrainTracker/ user@homeassistant:/config/custom_components/caltrain_tracker/
+scp -r custom_components/caltrain_tracker/ user@homeassistant:/config/custom_components/caltrain_tracker/
 
 # Option B: If using Samba/network share
-cp -r custom_components/CaltrainTracker/ /path/to/homeassistant/config/custom_components/caltrain_tracker/
+cp -r custom_components/caltrain_tracker/ /path/to/homeassistant/config/custom_components/caltrain_tracker/
 
 # Option C: Manual via File Editor add-on in Home Assistant
 # Use the File Editor add-on to create the folder structure and paste file contents
 ```
 
-**Important**: The folder should be named `caltrain_tracker` (matching the domain in manifest.json), not `CaltrainTracker`.
+**Note**: The folder is already correctly named to match the domain in manifest.json.
 
 ### 3. Verify File Structure
 

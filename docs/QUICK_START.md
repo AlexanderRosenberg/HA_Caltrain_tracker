@@ -15,7 +15,7 @@ Visit: https://511.org/open-data/token
 
 The integration folder is here:
 ```
-/Users/alexrosenberg/Documents/Gitrepos/HA_Caltrain_tracker/custom_components/CaltrainTracker/
+/Users/alexrosenberg/Documents/Gitrepos/HA_Caltrain_tracker/custom_components/caltrain_tracker/
 ```
 
 Copy it to your Home Assistant as:
@@ -23,7 +23,7 @@ Copy it to your Home Assistant as:
 /config/custom_components/caltrain_tracker/
 ```
 
-**Note**: Folder name changes from `CaltrainTracker` to `caltrain_tracker`
+**Note**: Folder is already correctly named - just copy as-is!
 
 ### 3️⃣ Restart Home Assistant
 Settings → System → Restart

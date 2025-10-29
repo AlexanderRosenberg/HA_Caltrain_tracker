@@ -41,7 +41,7 @@ A fully functional Home Assistant custom integration for real-time Caltrain trac
 
 ### Integration Code (8 files)
 ```
-custom_components/CaltrainTracker/
+custom_components/caltrain_tracker/
 ├── __init__.py              # Integration setup & entry point
 ├── config_flow.py           # Configuration UI wizard
 ├── const.py                 # Constants & station data

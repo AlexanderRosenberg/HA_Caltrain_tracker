@@ -14,7 +14,7 @@ A custom Home Assistant integration that provides real-time Caltrain train track
 
 ### Step 1: Copy Files
 
-Copy the `custom_components/CaltrainTracker` folder to your Home Assistant `custom_components` directory:
+Copy the `custom_components/caltrain_tracker` folder to your Home Assistant `custom_components` directory:
 
 ```
 /config/custom_components/caltrain_tracker/
