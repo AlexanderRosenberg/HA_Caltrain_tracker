@@ -1,4 +1,4 @@
-# Release v1.3.0 - Enhanced Custom Card
+# Release v1.3.2 - Enhanced Custom Card
 
 ## ✨ New Features: Visual Editor, Delay Indicators, Refresh Button, Station Selector
 

@@ -1,6 +1,6 @@
 import { LitElement, html, css, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
+import { HomeAssistant, LovelaceCardConfig, LovelaceCardEditor } from 'custom-card-helpers';
 
 interface CaltrainCardConfig extends LovelaceCardConfig {
   type: string;
@@ -44,20 +44,36 @@ export class CaltrainTrackerCard extends LitElement {
     if (!config) {
       throw new Error('Invalid configuration');
     }
+    
+    // Normalize entities - handle both array and single string
+    if (config.entities) {
+      if (typeof config.entities === 'string') {
+        // If entities is a string, convert to array
+        config.entities = [config.entities];
+      } else if (!Array.isArray(config.entities)) {
+        // If it's not an array or string, make it an array
+        config.entities = [];
+      }
+    }
+    
+    // Validate that at least one entity is provided
     if (!config.entity && (!config.entities || config.entities.length === 0)) {
       throw new Error('Please define an entity or entities');
     }
+    
     this._config = config;
   }
 
-  public static getConfigElement() {
+  public static async getConfigElement(): Promise<HTMLElement> {
+    // Ensure the editor element is defined
+    await customElements.whenDefined('caltrain-tracker-card-editor');
     return document.createElement('caltrain-tracker-card-editor');
   }
 
-  public static getStubConfig() {
+  public static getStubConfig(): CaltrainCardConfig {
     return {
       type: 'custom:caltrain-tracker-card',
-      entity: '',
+      entities: [],
       name: 'Caltrain Station',
       show_alerts: true,
       max_trains: 2,
@@ -741,12 +757,12 @@ export class CaltrainTrackerCard extends LitElement {
 
 // Visual Editor
 @customElement('caltrain-tracker-card-editor')
-export class CaltrainTrackerCardEditor extends LitElement {
+export class CaltrainTrackerCardEditor extends LitElement implements LovelaceCardEditor {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @state() private _config!: CaltrainCardConfig;
 
   public setConfig(config: CaltrainCardConfig): void {
-    this._config = config;
+    this._config = { ...config };
   }
 
   private _valueChanged(ev: CustomEvent): void {
