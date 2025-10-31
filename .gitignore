@@ -6,7 +6,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -19,6 +18,11 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Node / npm
+node_modules/
+package-lock.json
+*.tsbuildinfo
 
 # Virtual Environment
 venv/

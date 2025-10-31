@@ -1,0 +1,33 @@
+{
+  "name": "caltrain-tracker-card",
+  "version": "1.0.0",
+  "description": "Custom Lovelace card for Caltrain Tracker integration",
+  "main": "dist/caltrain-tracker-card.js",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c --watch",
+    "dev": "rollup -c --watch"
+  },
+  "keywords": [
+    "home-assistant",
+    "homeassistant",
+    "hass",
+    "lovelace",
+    "custom-card",
+    "caltrain"
+  ],
+  "author": "Alexander Rosenberg",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.9.6",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "custom-card-helpers": "^1.9.0",
+    "lit": "^3.1.2"
+  }
+}

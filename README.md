@@ -2,6 +2,20 @@
 
 A custom Home Assistant integration that provides real-time Caltrain train tracking, arrival predictions, and service alerts using the 511 SF Bay API.
 
+**Now includes a beautiful custom Lovelace card!** 🎨
+
+## Features
+
+- 🚂 **Real-time ETAs**: Get minute-by-minute updates for next arriving trains
+- 🗺️ **Live Train Tracking**: See trains moving on your Home Assistant map in real-time
+- 🎴 **Custom Dashboard Card**: Beautiful card for your Lovelace dashboards ([see below](#custom-card))
+- 📍 **Multiple Stations**: Track San Antonio and Palo Alto stations (both directions)
+- ⚠️ **Service Alerts**: Stay informed about delays and service disruptions
+- 🔄 **Auto-updating**: Data refreshes every 30 seconds
+- 🎨 **Easy Setup**: Simple configuration flow with API key validationracker for Home Assistant
+
+A custom Home Assistant integration that provides real-time Caltrain train tracking, arrival predictions, and service alerts using the 511 SF Bay API.
+
 ## Features
 
 - 🚂 **Real-time ETAs**: Get minute-by-minute updates for next arriving trains
@@ -198,6 +212,40 @@ content: |
   No trains scheduled
   {% endif %}
 ```
+
+## Custom Card
+
+### 🎴 Caltrain Tracker Card
+
+We've created a beautiful custom Lovelace card specifically for this integration!
+
+**Features:**
+- 📊 Clean, modern design
+- ⏱️ Color-coded ETAs (red/orange/green)
+- ⚠️ Service alerts display
+- 🎨 Theme-aware styling
+- 📱 Mobile responsive
+
+**Installation:**
+
+1. **Via HACS** (add repo as "Dashboard"):
+   - HACS → Frontend → Custom repositories
+   - Add: `https://github.com/AlexanderRosenberg/HA_Caltrain_tracker`
+   - Type: Dashboard
+
+2. **Manual**: Copy `dist/caltrain-tracker-card.js` to `/config/www/`
+
+**Usage:**
+
+```yaml
+type: custom:caltrain-tracker-card
+entity: sensor.caltrain_palo_alto_northbound
+name: "My Commute"
+max_trains: 3
+show_alerts: true
+```
+
+**Full Documentation:** See [CARD_README.md](CARD_README.md)
 
 ## Troubleshooting
 
