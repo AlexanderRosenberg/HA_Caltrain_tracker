@@ -44,6 +44,9 @@ export class CaltrainTrackerCard extends LitElement {
     if (!config) {
       throw new Error('Invalid configuration');
     }
+    if (!config.entity && (!config.entities || config.entities.length === 0)) {
+      throw new Error('Please define an entity or entities');
+    }
     this._config = config;
   }
 
@@ -66,8 +69,13 @@ export class CaltrainTrackerCard extends LitElement {
       return true;
     }
 
+    const currentEntity = this._getCurrentEntity();
+    if (!currentEntity) {
+      return true;
+    }
+
     const oldHass = changedProps.get('hass') as HomeAssistant | undefined;
-    if (!oldHass || oldHass.states[this._config.entity!] !== this.hass.states[this._config.entity!]) {
+    if (!oldHass || oldHass.states[currentEntity] !== this.hass.states[currentEntity]) {
       return true;
     }
 
@@ -75,11 +83,12 @@ export class CaltrainTrackerCard extends LitElement {
   }
 
   private _getAttributes(): SensorAttributes | null {
-    if (!this._config.entity || !this.hass) {
+    const currentEntity = this._getCurrentEntity();
+    if (!currentEntity || !this.hass) {
       return null;
     }
 
-    const stateObj = this.hass.states[this._config.entity];
+    const stateObj = this.hass.states[currentEntity];
     if (!stateObj) {
       return null;
     }
@@ -87,13 +96,14 @@ export class CaltrainTrackerCard extends LitElement {
     return stateObj.attributes as SensorAttributes;
   }
 
-  private _getState(): string | null {
-    if (!this._config.entity || !this.hass) {
-      return null;
+  private _getState(): string {
+    const currentEntity = this._getCurrentEntity();
+    if (!currentEntity || !this.hass) {
+      return 'unknown';
     }
 
-    const stateObj = this.hass.states[this._config.entity];
-    return stateObj ? stateObj.state : null;
+    const stateObj = this.hass.states[currentEntity];
+    return stateObj ? stateObj.state : 'unknown';
   }
 
   private _formatETA(minutes: number): string {
@@ -279,9 +289,10 @@ export class CaltrainTrackerCard extends LitElement {
     const nextTrains = attributes.next_trains?.slice(0, maxTrains) || [];
     const state = this._getState();
 
-    const showStationSelector = this._config.show_station_selector && 
-      (this._config.entities && this._config.entities.length > 1);
     const availableEntities = this._config.entities || (this._config.entity ? [this._config.entity] : []);
+    // Show station selector if: explicitly enabled, OR multiple entities exist (auto-show)
+    const showStationSelector = availableEntities.length > 1 && 
+      (this._config.show_station_selector !== false);
 
     return html`
       <ha-card>

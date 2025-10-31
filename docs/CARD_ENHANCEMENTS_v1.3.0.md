@@ -50,8 +50,8 @@ entities:
   - sensor.caltrain_palo_alto_southbound
   - sensor.caltrain_san_antonio_northbound
   - sensor.caltrain_san_antonio_southbound
-show_station_selector: true
 name: Caltrain Stations
+# Station selector shows automatically with multiple entities
 ```
 
 ### GPS-Based Station Selection
@@ -77,7 +77,9 @@ name: Nearest Station
 | `name` | string | `null` | Card title |
 | `show_alerts` | boolean | `true` | Show service alerts |
 | `max_trains` | number | `2` | Maximum trains to display |
-| `show_station_selector` | boolean | `false` | Show dropdown selector (requires `entities`) |
+| `show_station_selector` | boolean | `true`* | Show dropdown selector (auto-enabled with multiple entities) |
+
+\* Automatically enabled when multiple entities configured; set to `false` to hide
 | `use_gps` | boolean | `false` | Enable GPS-based station selection |
 | `gps_entity` | string | `null` | Device tracker or person entity for GPS coordinates |
 

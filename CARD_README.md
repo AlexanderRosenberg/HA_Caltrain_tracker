@@ -68,11 +68,12 @@ entity: sensor.caltrain_palo_alto_northbound
 | `name` | string | Station name | Custom title for the card |
 | `show_alerts` | boolean | `true` | Show service alerts |
 | `max_trains` | number | `2` | Maximum number of trains to display |
-| `show_station_selector` | boolean | `false` | Show dropdown to switch stations |
+| `show_station_selector` | boolean | `true`** | Show dropdown to switch stations |
 | `use_gps` | boolean | `false` | Auto-select nearest station |
 | `gps_entity` | string | `null` | Device tracker or person entity for GPS |
 
-\* Either `entity` or `entities` is required
+\* Either `entity` or `entities` is required  
+\*\* Auto-enabled when multiple entities are configured; set to `false` to hide
 
 ### Examples
 
@@ -118,8 +119,8 @@ entities:
   - sensor.caltrain_palo_alto_southbound
   - sensor.caltrain_san_antonio_northbound
   - sensor.caltrain_san_antonio_southbound
-show_station_selector: true
 name: Caltrain Stations
+# Note: Station selector shows automatically when multiple entities are configured
 ```
 
 #### GPS-Based Station Selection (New in v1.3.0)
@@ -133,9 +134,9 @@ entities:
   - sensor.caltrain_san_antonio_southbound
 use_gps: true
 gps_entity: person.alex
-show_station_selector: true  # Optional: Allow manual override
 name: Nearest Station
 max_trains: 3
+# Note: Station selector automatically shown for manual override
 ```
 
 ## Card Layout
