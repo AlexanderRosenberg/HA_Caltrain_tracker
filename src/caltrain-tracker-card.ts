@@ -12,6 +12,7 @@ interface CaltrainCardConfig extends LovelaceCardConfig {
   show_station_selector?: boolean;
   use_gps?: boolean;
   gps_entity?: string; // Device tracker or person entity for GPS
+  direction?: 'northbound' | 'southbound' | 'both'; // Direction filter
 }
 
 interface NextTrain {
@@ -77,6 +78,7 @@ export class CaltrainTrackerCard extends LitElement {
       name: 'Caltrain Station',
       show_alerts: true,
       max_trains: 2,
+      direction: 'both',
     };
   }
 
@@ -330,7 +332,12 @@ export class CaltrainTrackerCard extends LitElement {
           <div class="header-content">
             <ha-icon icon="mdi:train"></ha-icon>
             <div class="header-text">
-              <div class="name">${this._config.name || attributes.station_name}</div>
+              <div class="name">
+                ${this._config.name || attributes.station_name}
+                ${this._config.use_gps && this._getClosestStation() === currentEntity
+                  ? html`<ha-icon class="gps-indicator" icon="mdi:crosshairs-gps" title="Auto-selected by GPS"></ha-icon>`
+                  : ''}
+              </div>
               <div class="direction">${attributes.direction}</div>
             </div>
           </div>
@@ -385,6 +392,7 @@ export class CaltrainTrackerCard extends LitElement {
                       const delay = train.delay || 0;
                       const isDelayed = delay > 60; // More than 1 minute late
                       const isEarly = delay < -60; // More than 1 minute early
+                      const hasScheduledTime = train.scheduled_time && train.scheduled_time !== train.arrival_time;
                       
                       return html`
                         <div class="train-item ${isDelayed ? 'delayed' : ''}">
@@ -395,7 +403,17 @@ export class CaltrainTrackerCard extends LitElement {
                           </div>
                           <div class="train-info">
                             <div class="train-time">
-                              ${train.arrival_time}
+                              ${hasScheduledTime
+                                ? html`
+                                    <span class="scheduled-time" title="Scheduled arrival">
+                                      ${train.scheduled_time}
+                                    </span>
+                                    <ha-icon class="arrow-icon" icon="mdi:arrow-right"></ha-icon>
+                                    <span class="realtime-badge" title="Real-time arrival">
+                                      ${train.arrival_time}
+                                    </span>
+                                  `
+                                : html`${train.arrival_time}`}
                               ${isDelayed
                                 ? html`<span class="delay-badge late">+${Math.round(delay / 60)}min</span>`
                                 : isEarly
@@ -505,6 +523,20 @@ export class CaltrainTrackerCard extends LitElement {
         font-size: 18px;
         font-weight: 600;
         color: var(--primary-text-color);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .gps-indicator {
+        color: var(--success-color, #66bb6a);
+        --mdc-icon-size: 18px;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
       }
 
       .direction {
@@ -645,6 +677,22 @@ export class CaltrainTrackerCard extends LitElement {
         display: flex;
         align-items: center;
         gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .scheduled-time {
+        text-decoration: line-through;
+        opacity: 0.6;
+      }
+
+      .realtime-badge {
+        font-weight: 600;
+        color: var(--primary-color);
+      }
+
+      .arrow-icon {
+        --mdc-icon-size: 14px;
+        opacity: 0.6;
       }
 
       .train-eta {
@@ -788,21 +836,32 @@ export class CaltrainTrackerCardEditor extends LitElement implements LovelaceCar
     }
   }
 
-  private _entitiesChanged(ev: CustomEvent): void {
+  private _entityCheckboxChanged(ev: Event, entityId: string): void {
     if (!this._config || !this.hass) {
       return;
     }
 
-    const target = ev.target as any;
-    const entities = target.value ? target.value.split(',').map((e: string) => e.trim()).filter(Boolean) : [];
+    const target = ev.target as HTMLInputElement;
+    const currentEntities = this._config.entities || [];
+    
+    let newEntities: string[];
+    if (target.checked) {
+      // Add entity if not already present
+      newEntities = currentEntities.includes(entityId) 
+        ? currentEntities 
+        : [...currentEntities, entityId];
+    } else {
+      // Remove entity
+      newEntities = currentEntities.filter(e => e !== entityId);
+    }
 
     const newConfig = {
       ...this._config,
-      entities: entities.length > 0 ? entities : undefined,
+      entities: newEntities.length > 0 ? newEntities : [],
     };
 
     // If we have entities, remove single entity
-    if (entities.length > 0) {
+    if (newEntities.length > 0) {
       delete newConfig.entity;
     }
 
@@ -819,43 +878,79 @@ export class CaltrainTrackerCardEditor extends LitElement implements LovelaceCar
       return html``;
     }
 
-    const caltrainEntities = Object.keys(this.hass.states).filter(
-      (eid) => eid.startsWith('sensor.') && eid.includes('caltrain')
+    // Get all Caltrain entities
+    const allCaltrainEntities = Object.keys(this.hass.states).filter(
+      (eid) => eid.startsWith('sensor.') && (eid.includes('caltrain') || eid.includes('northbound') || eid.includes('southbound'))
     );
 
-    const entities = this._config.entities?.join(', ') || '';
+    // Group by station name
+    const stationGroups: { [key: string]: { northbound?: string; southbound?: string } } = {};
+    allCaltrainEntities.forEach(entityId => {
+      const entity = this.hass.states[entityId];
+      const stationName = entity.attributes.station_name || entityId;
+      const direction = entity.attributes.direction?.toLowerCase() || '';
+      
+      if (!stationGroups[stationName]) {
+        stationGroups[stationName] = {};
+      }
+      
+      if (direction.includes('north')) {
+        stationGroups[stationName].northbound = entityId;
+      } else if (direction.includes('south')) {
+        stationGroups[stationName].southbound = entityId;
+      }
+    });
+
+    // Filter entities based on selected direction
+    const selectedDirection = this._config.direction || 'both';
+    const filteredEntities = allCaltrainEntities.filter(entityId => {
+      if (selectedDirection === 'both') return true;
+      const entity = this.hass.states[entityId];
+      const direction = entity.attributes.direction?.toLowerCase() || '';
+      return direction.includes(selectedDirection);
+    });
+
+    const selectedEntities = this._config.entities || [];
 
     return html`
       <div class="card-config">
         <div class="option">
-          <label class="label">Single Station Entity (optional)</label>
+          <label class="label">Direction Filter</label>
           <select
-            .configValue=${'entity'}
-            .value=${this._config.entity || ''}
+            .configValue=${'direction'}
+            .value=${this._config.direction || 'both'}
             @change=${this._valueChanged}
           >
-            <option value="">None (use multiple entities below)</option>
-            ${caltrainEntities.map(
-              (entity) => html`
-                <option value="${entity}" ?selected=${entity === this._config.entity}>
-                  ${this.hass.states[entity].attributes.station_name || entity}
-                </option>
-              `
-            )}
+            <option value="both">Both Directions</option>
+            <option value="northbound">Northbound Only</option>
+            <option value="southbound">Southbound Only</option>
           </select>
-          <div class="description">Select a single Caltrain station sensor</div>
+          <div class="description">Filter stations by direction</div>
         </div>
 
         <div class="option">
-          <label class="label">Multiple Entities (comma-separated)</label>
-          <input
-            type="text"
-            .value=${entities}
-            @input=${this._entitiesChanged}
-            placeholder="sensor.caltrain_palo_alto_northbound, sensor.caltrain_palo_alto_southbound"
-          />
+          <label class="label">Select Stations</label>
+          <div class="station-checkboxes">
+            ${filteredEntities.length === 0
+              ? html`<div class="no-stations">No Caltrain stations found</div>`
+              : filteredEntities.map(entityId => {
+                  const entity = this.hass.states[entityId];
+                  const stationName = entity.attributes.station_name || entityId;
+                  const direction = entity.attributes.direction || '';
+                  return html`
+                    <label class="checkbox-label">
+                      <input
+                        type="checkbox"
+                        .checked=${selectedEntities.includes(entityId)}
+                        @change=${(ev: Event) => this._entityCheckboxChanged(ev, entityId)}
+                      />
+                      <span>${stationName} - ${direction}</span>
+                    </label>
+                  `;
+                })}
+          </div>
           <div class="description">
-            Enter multiple station entities for selector/GPS features. Overrides single entity if provided.
+            Select one or more stations to display. Multiple stations enable GPS proximity and station selector.
           </div>
         </div>
 
@@ -1018,6 +1113,45 @@ export class CaltrainTrackerCardEditor extends LitElement implements LovelaceCar
 
       select {
         cursor: pointer;
+      }
+
+      .station-checkboxes {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 300px;
+        overflow-y: auto;
+        padding: 8px;
+        border: 1px solid var(--divider-color);
+        border-radius: 4px;
+        background: var(--card-background-color);
+      }
+
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+
+      .checkbox-label:hover {
+        background: var(--primary-color);
+        color: var(--text-primary-color);
+        opacity: 0.1;
+      }
+
+      .checkbox-label span {
+        font-size: 14px;
+      }
+
+      .no-stations {
+        padding: 16px;
+        text-align: center;
+        color: var(--secondary-text-color);
+        font-size: 14px;
       }
     `;
   }
