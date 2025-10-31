@@ -154,6 +154,35 @@ export class CaltrainTrackerCard extends LitElement {
     return 'var(--success-color, #66bb6a)';
   }
 
+  private _getRouteInfo(route: string): { color: string; icon: string; label: string } {
+    const routeLower = route.toLowerCase();
+    
+    // Baby Bullet - Fast express service (red)
+    if (routeLower.includes('bullet') || routeLower.includes('bb')) {
+      return {
+        color: '#C62828', // Caltrain Red
+        icon: 'mdi:lightning-bolt',
+        label: 'Baby Bullet'
+      };
+    }
+    
+    // Limited - Fewer stops (orange)
+    if (routeLower.includes('limited') || routeLower.includes('ltd')) {
+      return {
+        color: '#F57C00', // Caltrain Orange
+        icon: 'mdi:train-variant',
+        label: 'Limited'
+      };
+    }
+    
+    // Local - All stops (green/teal)
+    return {
+      color: '#00897B', // Caltrain Teal
+      icon: 'mdi:train',
+      label: 'Local'
+    };
+  }
+
   private _isWithinOperatingHours(): boolean {
     const now = new Date();
     const hour = now.getHours();
@@ -330,15 +359,15 @@ export class CaltrainTrackerCard extends LitElement {
       <ha-card>
         <div class="card-header">
           <div class="header-content">
-            <ha-icon icon="mdi:train"></ha-icon>
+            <ha-icon icon="mdi:train-car-passenger"></ha-icon>
             <div class="header-text">
-              <div class="name">
-                ${this._config.name || attributes.station_name}
+              <div class="name">${this._config.name || attributes.station_name}</div>
+              <div class="direction">
+                ${attributes.direction}
                 ${this._config.use_gps && this._getClosestStation() === currentEntity
-                  ? html`<ha-icon class="gps-indicator" icon="mdi:crosshairs-gps" title="Auto-selected by GPS"></ha-icon>`
+                  ? html`<span class="gps-badge"><ha-icon icon="mdi:crosshairs-gps"></ha-icon> GPS</span>`
                   : ''}
               </div>
-              <div class="direction">${attributes.direction}</div>
             </div>
           </div>
           <div class="header-actions">
@@ -392,34 +421,45 @@ export class CaltrainTrackerCard extends LitElement {
                       const delay = train.delay || 0;
                       const isDelayed = delay > 60; // More than 1 minute late
                       const isEarly = delay < -60; // More than 1 minute early
-                      const hasScheduledTime = train.scheduled_time && train.scheduled_time !== train.arrival_time;
+                      const hasScheduledTime = train.scheduled_time;
+                      const isOnTime = delay >= -60 && delay <= 60; // Within 1 minute
+                      const routeInfo = this._getRouteInfo(train.route);
                       
                       return html`
-                        <div class="train-item ${isDelayed ? 'delayed' : ''}">
+                        <div class="train-item ${isDelayed ? 'delayed' : isEarly ? 'early' : ''}" style="border-left: 4px solid ${routeInfo.color}">
                           <div class="train-route">
-                            <ha-icon icon="mdi:train-car"></ha-icon>
-                            <span>${train.route}</span>
-                            ${train.trip_id ? html`<span class="trip-id">#${train.trip_id}</span>` : ''}
+                            <ha-icon icon="${routeInfo.icon}" style="color: ${routeInfo.color}"></ha-icon>
+                            <div class="route-info">
+                              <span class="route-name">${train.route}</span>
+                              ${train.trip_id ? html`<span class="trip-id">#${train.trip_id}</span>` : ''}
+                            </div>
                           </div>
                           <div class="train-info">
-                            <div class="train-time">
-                              ${hasScheduledTime
-                                ? html`
-                                    <span class="scheduled-time" title="Scheduled arrival">
-                                      ${train.scheduled_time}
+                            ${hasScheduledTime
+                              ? html`
+                                  <div class="train-time">
+                                    <span class="time-label">Scheduled:</span>
+                                    <span class="scheduled-time">${train.scheduled_time}</span>
+                                  </div>
+                                  <div class="train-time realtime">
+                                    <span class="time-label">
+                                      ${isOnTime ? 'On Time:' : 'Expected:'}
                                     </span>
-                                    <ha-icon class="arrow-icon" icon="mdi:arrow-right"></ha-icon>
-                                    <span class="realtime-badge" title="Real-time arrival">
+                                    <span class="realtime-time ${isDelayed ? 'late' : isEarly ? 'early' : 'ontime'}">
                                       ${train.arrival_time}
                                     </span>
-                                  `
-                                : html`${train.arrival_time}`}
-                              ${isDelayed
-                                ? html`<span class="delay-badge late">+${Math.round(delay / 60)}min</span>`
-                                : isEarly
-                                ? html`<span class="delay-badge early">${Math.round(delay / 60)}min</span>`
-                                : ''}
-                            </div>
+                                    ${!isOnTime
+                                      ? html`<span class="delay-badge ${isDelayed ? 'late' : 'early'}">
+                                          ${isDelayed ? '+' : ''}${Math.round(delay / 60)}min
+                                        </span>`
+                                      : html`<ha-icon class="ontime-icon" icon="mdi:check-circle"></ha-icon>`}
+                                  </div>
+                                `
+                              : html`
+                                  <div class="train-time">
+                                    <span class="arrival-time">${train.arrival_time}</span>
+                                  </div>
+                                `}
                             <div 
                               class="train-eta" 
                               style="color: ${this._getETAColor(train.eta_minutes)}"
@@ -510,8 +550,8 @@ export class CaltrainTrackerCard extends LitElement {
       }
 
       .header-content ha-icon {
-        color: var(--primary-color);
-        --mdc-icon-size: 32px;
+        color: #C62828; /* Caltrain Red */
+        --mdc-icon-size: 36px;
       }
 
       .header-text {
@@ -523,25 +563,31 @@ export class CaltrainTrackerCard extends LitElement {
         font-size: 18px;
         font-weight: 600;
         color: var(--primary-text-color);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .gps-indicator {
-        color: var(--success-color, #66bb6a);
-        --mdc-icon-size: 18px;
-        animation: pulse 2s ease-in-out infinite;
-      }
-
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
       }
 
       .direction {
         font-size: 14px;
         color: var(--secondary-text-color);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .gps-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--success-color, #66bb6a);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .gps-badge ha-icon {
+        --mdc-icon-size: 14px;
       }
 
       .train-count {
@@ -644,24 +690,40 @@ export class CaltrainTrackerCard extends LitElement {
         background: rgba(255, 82, 82, 0.05);
       }
 
+      .train-item.early {
+        border-color: var(--success-color, #66bb6a);
+        background: rgba(102, 187, 106, 0.05);
+      }
+
       .train-route {
         display: flex;
         align-items: center;
-        gap: 8px;
-        font-weight: 500;
+        gap: 10px;
+      }
+
+      .route-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .route-name {
+        font-weight: 600;
         color: var(--primary-text-color);
-        flex-wrap: wrap;
+        font-size: 15px;
       }
 
       .trip-id {
-        font-size: 11px;
+        font-size: 10px;
         color: var(--secondary-text-color);
         font-weight: 400;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
       }
 
       .train-route ha-icon {
-        color: var(--primary-color);
-        --mdc-icon-size: 20px;
+        --mdc-icon-size: 24px;
+        flex-shrink: 0;
       }
 
       .train-info {
@@ -672,27 +734,53 @@ export class CaltrainTrackerCard extends LitElement {
       }
 
       .train-time {
-        font-size: 14px;
-        color: var(--secondary-text-color);
+        font-size: 13px;
         display: flex;
         align-items: center;
         gap: 6px;
-        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .train-time.realtime {
+        font-weight: 600;
+      }
+
+      .time-label {
+        color: var(--secondary-text-color);
+        font-size: 11px;
+        text-transform: uppercase;
+        font-weight: 500;
       }
 
       .scheduled-time {
-        text-decoration: line-through;
-        opacity: 0.6;
+        color: var(--secondary-text-color);
+        font-weight: 500;
       }
 
-      .realtime-badge {
+      .realtime-time {
         font-weight: 600;
-        color: var(--primary-color);
       }
 
-      .arrow-icon {
-        --mdc-icon-size: 14px;
-        opacity: 0.6;
+      .realtime-time.late {
+        color: var(--error-color, #ff5252);
+      }
+
+      .realtime-time.early {
+        color: var(--success-color, #66bb6a);
+      }
+
+      .realtime-time.ontime {
+        color: var(--success-color, #66bb6a);
+      }
+
+      .ontime-icon {
+        color: var(--success-color, #66bb6a);
+        --mdc-icon-size: 16px;
+      }
+
+      .arrival-time {
+        font-weight: 600;
+        color: var(--primary-text-color);
       }
 
       .train-eta {
