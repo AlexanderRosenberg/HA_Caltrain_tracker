@@ -2,6 +2,7 @@
   "name": "caltrain-tracker-card",
   "version": "1.0.0",
   "description": "Custom Lovelace card for Caltrain Tracker integration",
+  "type": "module",
   "main": "dist/caltrain-tracker-card.js",
   "scripts": {
     "build": "rollup -c",
