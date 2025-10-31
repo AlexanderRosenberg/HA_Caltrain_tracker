@@ -85,12 +85,22 @@ class CaltrainStationSensor(CoordinatorEntity, SensorEntity):
         # Format next trains for display
         formatted_trains = []
         for train in next_trains:
-            formatted_trains.append({
+            train_data = {
                 "trip_id": train["trip_id"],
                 "route": train["route"],
                 "eta_minutes": train["eta_minutes"],
                 "arrival_time": datetime.fromtimestamp(train["arrival_time"]).strftime("%I:%M %p"),
-            })
+            }
+            
+            # Add delay information if available
+            if "delay" in train and train["delay"] is not None:
+                train_data["delay"] = train["delay"]  # in seconds
+            
+            # Add scheduled time if available
+            if "scheduled_time" in train and train["scheduled_time"]:
+                train_data["scheduled_time"] = datetime.fromtimestamp(train["scheduled_time"]).strftime("%I:%M %p")
+            
+            formatted_trains.append(train_data)
         
         attributes = {
             "station_name": station_info["name"],

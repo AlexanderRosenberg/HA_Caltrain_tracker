@@ -7,6 +7,10 @@ A beautiful custom Lovelace card for the [Caltrain Tracker integration](https://
 ## Features
 
 - 🚂 **Next Trains Display** - Shows upcoming trains with ETAs
+- 🔴 **Delay Indicators** - Late/early train badges with color coding
+- 🔄 **Manual Refresh** - On-demand updates respecting operating hours
+- 📍 **Station Selector** - Switch between multiple stations
+- 🧭 **GPS Proximity** - Auto-select nearest station based on location
 - ⏱️ **Color-Coded ETAs** - Quick visual indicator of urgency
 - ⚠️ **Service Alerts** - Displays active alerts and delays
 - 🎨 **Theme Integration** - Matches your Home Assistant theme
@@ -59,10 +63,16 @@ entity: sensor.caltrain_palo_alto_northbound
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `type` | string | **Required** | `custom:caltrain-tracker-card` |
-| `entity` | string | **Required** | Caltrain station sensor entity ID |
+| `entity` | string | **Required*** | Single station sensor entity ID |
+| `entities` | list | `null` | Multiple station sensors (for selector/GPS) |
 | `name` | string | Station name | Custom title for the card |
 | `show_alerts` | boolean | `true` | Show service alerts |
-| `max_trains` | number | `3` | Maximum number of trains to display |
+| `max_trains` | number | `2` | Maximum number of trains to display |
+| `show_station_selector` | boolean | `false` | Show dropdown to switch stations |
+| `use_gps` | boolean | `false` | Auto-select nearest station |
+| `gps_entity` | string | `null` | Device tracker or person entity for GPS |
+
+\* Either `entity` or `entities` is required
 
 ### Examples
 
@@ -83,7 +93,7 @@ show_alerts: true
 max_trains: 5
 ```
 
-#### Multiple Stations
+#### Multiple Stations (Vertical Stack)
 
 ```yaml
 type: vertical-stack
@@ -97,6 +107,35 @@ cards:
     entity: sensor.caltrain_palo_alto_southbound
     name: "To San Jose"
     max_trains: 3
+```
+
+#### Station Selector (New in v1.3.0)
+
+```yaml
+type: custom:caltrain-tracker-card
+entities:
+  - sensor.caltrain_palo_alto_northbound
+  - sensor.caltrain_palo_alto_southbound
+  - sensor.caltrain_san_antonio_northbound
+  - sensor.caltrain_san_antonio_southbound
+show_station_selector: true
+name: Caltrain Stations
+```
+
+#### GPS-Based Station Selection (New in v1.3.0)
+
+```yaml
+type: custom:caltrain-tracker-card
+entities:
+  - sensor.caltrain_palo_alto_northbound
+  - sensor.caltrain_palo_alto_southbound
+  - sensor.caltrain_san_antonio_northbound
+  - sensor.caltrain_san_antonio_southbound
+use_gps: true
+gps_entity: person.alex
+show_station_selector: true  # Optional: Allow manual override
+name: Nearest Station
+max_trains: 3
 ```
 
 ## Card Layout

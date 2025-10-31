@@ -5,9 +5,13 @@ import { HomeAssistant, LovelaceCardConfig } from 'custom-card-helpers';
 interface CaltrainCardConfig extends LovelaceCardConfig {
   type: string;
   entity?: string;
+  entities?: string[]; // Multiple station entities
   name?: string;
   show_alerts?: boolean;
   max_trains?: number;
+  show_station_selector?: boolean;
+  use_gps?: boolean;
+  gps_entity?: string; // Device tracker or person entity for GPS
 }
 
 interface NextTrain {
@@ -15,6 +19,8 @@ interface NextTrain {
   route: string;
   eta_minutes: number;
   arrival_time: string;
+  delay?: number; // Delay in seconds (positive = late, negative = early)
+  scheduled_time?: string;
 }
 
 interface SensorAttributes {
@@ -31,6 +37,8 @@ interface SensorAttributes {
 export class CaltrainTrackerCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
   @state() private _config!: CaltrainCardConfig;
+  @state() private _selectedEntity?: string;
+  @state() private _isRefreshing = false;
 
   public setConfig(config: CaltrainCardConfig): void {
     if (!config) {
@@ -104,29 +112,151 @@ export class CaltrainTrackerCard extends LitElement {
     return 'var(--success-color, #66bb6a)';
   }
 
+  private _isWithinOperatingHours(): boolean {
+    const now = new Date();
+    const hour = now.getHours();
+    const day = now.getDay();
+    
+    // Caltrain operates roughly 5 AM - 1 AM (next day)
+    // Weekdays: 4:00 AM - 1:00 AM
+    // Weekends: 6:00 AM - 1:00 AM
+    if (day >= 1 && day <= 5) {
+      // Weekday
+      return hour >= 4 || hour < 1;
+    } else {
+      // Weekend
+      return hour >= 6 || hour < 1;
+    }
+  }
+
+  private _calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    // Haversine formula for distance between two points
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  private _getClosestStation(): string | null {
+    if (!this._config.use_gps || !this._config.gps_entity || !this.hass) {
+      return null;
+    }
+
+    const gpsEntity = this.hass.states[this._config.gps_entity];
+    if (!gpsEntity || !gpsEntity.attributes.latitude || !gpsEntity.attributes.longitude) {
+      return null;
+    }
+
+    const userLat = gpsEntity.attributes.latitude;
+    const userLon = gpsEntity.attributes.longitude;
+    
+    const entities = this._config.entities || (this._config.entity ? [this._config.entity] : []);
+    let closestEntity = null;
+    let closestDistance = Infinity;
+
+    entities.forEach(entityId => {
+      const stateObj = this.hass.states[entityId];
+      if (stateObj && stateObj.attributes.latitude && stateObj.attributes.longitude) {
+        const distance = this._calculateDistance(
+          userLat,
+          userLon,
+          stateObj.attributes.latitude,
+          stateObj.attributes.longitude
+        );
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestEntity = entityId;
+        }
+      }
+    });
+
+    return closestEntity;
+  }
+
+  private _getCurrentEntity(): string | null {
+    // Priority: selected entity > GPS closest > config entity > first in entities list
+    if (this._selectedEntity) {
+      return this._selectedEntity;
+    }
+
+    if (this._config.use_gps) {
+      const closest = this._getClosestStation();
+      if (closest) {
+        return closest;
+      }
+    }
+
+    if (this._config.entity) {
+      return this._config.entity;
+    }
+
+    if (this._config.entities && this._config.entities.length > 0) {
+      return this._config.entities[0];
+    }
+
+    return null;
+  }
+
+  private async _handleRefresh(): Promise<void> {
+    if (!this._isWithinOperatingHours()) {
+      alert('Caltrain is not currently operating. Service hours: Weekdays 4 AM - 1 AM, Weekends 6 AM - 1 AM');
+      return;
+    }
+
+    this._isRefreshing = true;
+    
+    const entity = this._getCurrentEntity();
+    if (entity && this.hass) {
+      // Trigger a coordinator refresh by calling the update service
+      try {
+        await this.hass.callService('homeassistant', 'update_entity', {
+          entity_id: entity,
+        });
+        
+        // Wait a moment for the update to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.error('Error refreshing entity:', error);
+      }
+    }
+    
+    this._isRefreshing = false;
+  }
+
+  private _handleStationSelect(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this._selectedEntity = target.value;
+  }
+
   protected render() {
     if (!this._config || !this.hass) {
       return html``;
     }
 
-    if (!this._config.entity) {
+    const currentEntity = this._getCurrentEntity();
+    if (!currentEntity) {
       return html`
         <ha-card>
           <div class="card-content error">
             <ha-icon icon="mdi:alert-circle"></ha-icon>
-            <p>Please configure an entity</p>
+            <p>Please configure an entity or entities</p>
           </div>
         </ha-card>
       `;
     }
 
-    const stateObj = this.hass.states[this._config.entity];
+    const stateObj = this.hass.states[currentEntity];
     if (!stateObj) {
       return html`
         <ha-card>
           <div class="card-content error">
             <ha-icon icon="mdi:alert-circle"></ha-icon>
-            <p>Entity not found: ${this._config.entity}</p>
+            <p>Entity not found: ${currentEntity}</p>
           </div>
         </ha-card>
       `;
@@ -149,6 +279,10 @@ export class CaltrainTrackerCard extends LitElement {
     const nextTrains = attributes.next_trains?.slice(0, maxTrains) || [];
     const state = this._getState();
 
+    const showStationSelector = this._config.show_station_selector && 
+      (this._config.entities && this._config.entities.length > 1);
+    const availableEntities = this._config.entities || (this._config.entity ? [this._config.entity] : []);
+
     return html`
       <ha-card>
         <div class="card-header">
@@ -159,9 +293,38 @@ export class CaltrainTrackerCard extends LitElement {
               <div class="direction">${attributes.direction}</div>
             </div>
           </div>
-          ${attributes.train_count > 0
-            ? html`<div class="train-count">${attributes.train_count} trains</div>`
-            : ''}
+          <div class="header-actions">
+            ${showStationSelector
+              ? html`
+                  <select class="station-selector" @change=${this._handleStationSelect}>
+                    ${availableEntities.map(
+                      (entityId) => {
+                        const entity = this.hass.states[entityId];
+                        const label = entity 
+                          ? `${entity.attributes.station_name} ${entity.attributes.direction}`
+                          : entityId;
+                        return html`
+                          <option value="${entityId}" ?selected=${entityId === currentEntity}>
+                            ${label}
+                          </option>
+                        `;
+                      }
+                    )}
+                  </select>
+                `
+              : ''}
+            <button 
+              class="refresh-button" 
+              @click=${this._handleRefresh}
+              ?disabled=${this._isRefreshing || !this._isWithinOperatingHours()}
+              title="Refresh train data"
+            >
+              <ha-icon icon="${this._isRefreshing ? 'mdi:loading' : 'mdi:refresh'}"></ha-icon>
+            </button>
+            ${attributes.train_count > 0
+              ? html`<div class="train-count">${attributes.train_count} trains</div>`
+              : ''}
+          </div>
         </div>
 
         <div class="card-content">
@@ -176,23 +339,38 @@ export class CaltrainTrackerCard extends LitElement {
             ? html`
                 <div class="trains">
                   ${nextTrains.map(
-                    (train) => html`
-                      <div class="train-item">
-                        <div class="train-route">
-                          <ha-icon icon="mdi:train-car"></ha-icon>
-                          <span>${train.route}</span>
-                        </div>
-                        <div class="train-info">
-                          <div class="train-time">${train.arrival_time}</div>
-                          <div 
-                            class="train-eta" 
-                            style="color: ${this._getETAColor(train.eta_minutes)}"
-                          >
-                            ${this._formatETA(train.eta_minutes)}
+                    (train) => {
+                      // Check if train has delay information
+                      const delay = train.delay || 0;
+                      const isDelayed = delay > 60; // More than 1 minute late
+                      const isEarly = delay < -60; // More than 1 minute early
+                      
+                      return html`
+                        <div class="train-item ${isDelayed ? 'delayed' : ''}">
+                          <div class="train-route">
+                            <ha-icon icon="mdi:train-car"></ha-icon>
+                            <span>${train.route}</span>
+                            ${train.trip_id ? html`<span class="trip-id">#${train.trip_id}</span>` : ''}
+                          </div>
+                          <div class="train-info">
+                            <div class="train-time">
+                              ${train.arrival_time}
+                              ${isDelayed
+                                ? html`<span class="delay-badge late">+${Math.round(delay / 60)}min</span>`
+                                : isEarly
+                                ? html`<span class="delay-badge early">${Math.round(delay / 60)}min</span>`
+                                : ''}
+                            </div>
+                            <div 
+                              class="train-eta" 
+                              style="color: ${this._getETAColor(train.eta_minutes)}"
+                            >
+                              ${this._formatETA(train.eta_minutes)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    `
+                      `;
+                    }
                   )}
                 </div>
               `
@@ -250,16 +428,26 @@ export class CaltrainTrackerCard extends LitElement {
       .card-header {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-start;
         margin-bottom: 16px;
         padding-bottom: 12px;
         border-bottom: 1px solid var(--divider-color);
+        gap: 12px;
       }
 
       .header-content {
         display: flex;
         align-items: center;
         gap: 12px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
       }
 
       .header-content ha-icon {
@@ -290,6 +478,64 @@ export class CaltrainTrackerCard extends LitElement {
         border-radius: 12px;
         font-size: 12px;
         font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .station-selector {
+        padding: 6px 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font-size: 14px;
+        cursor: pointer;
+        max-width: 200px;
+      }
+
+      .station-selector:focus {
+        outline: 2px solid var(--primary-color);
+        outline-offset: 2px;
+      }
+
+      .refresh-button {
+        padding: 8px;
+        border: 1px solid var(--divider-color);
+        border-radius: 8px;
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .refresh-button:hover:not(:disabled) {
+        background: var(--primary-color);
+        color: var(--text-primary-color);
+        border-color: var(--primary-color);
+      }
+
+      .refresh-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .refresh-button ha-icon {
+        --mdc-icon-size: 20px;
+      }
+
+      .refresh-button:disabled ha-icon {
+        animation: none;
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      .refresh-button ha-icon[icon="mdi:loading"] {
+        animation: spin 1s linear infinite;
       }
 
       .card-content {
@@ -320,12 +566,24 @@ export class CaltrainTrackerCard extends LitElement {
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       }
 
+      .train-item.delayed {
+        border-color: var(--error-color, #ff5252);
+        background: rgba(255, 82, 82, 0.05);
+      }
+
       .train-route {
         display: flex;
         align-items: center;
         gap: 8px;
         font-weight: 500;
         color: var(--primary-text-color);
+        flex-wrap: wrap;
+      }
+
+      .trip-id {
+        font-size: 11px;
+        color: var(--secondary-text-color);
+        font-weight: 400;
       }
 
       .train-route ha-icon {
@@ -343,11 +601,32 @@ export class CaltrainTrackerCard extends LitElement {
       .train-time {
         font-size: 14px;
         color: var(--secondary-text-color);
+        display: flex;
+        align-items: center;
+        gap: 6px;
       }
 
       .train-eta {
         font-size: 16px;
         font-weight: 600;
+      }
+
+      .delay-badge {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .delay-badge.late {
+        background: var(--error-color, #ff5252);
+        color: white;
+      }
+
+      .delay-badge.early {
+        background: var(--success-color, #66bb6a);
+        color: white;
       }
 
       .no-trains {

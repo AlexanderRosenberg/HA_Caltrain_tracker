@@ -1,3 +1,61 @@
+# Release v1.3.0 - Enhanced Custom Card
+
+## ✨ New Features: Delay Indicators, Refresh Button, Station Selector
+
+Major enhancements to the custom Lovelace card!
+
+### What's New
+
+- 🔴 **Delay/Late Train Indicators**: Visual badges show if trains are running late (+Xmin) or early (-Xmin)
+- 🔄 **Manual Refresh Button**: Refresh train data on-demand, respects operating hours (Weekdays 4AM-1AM, Weekends 6AM-1AM)
+- 📍 **Station Selector**: Dropdown to switch between multiple configured stations
+- 🧭 **GPS Proximity**: Auto-select nearest station based on your device tracker or person entity
+- 🎫 **Trip ID Display**: See trip numbers next to route names
+- 🎨 **Enhanced UI**: New CSS animations, loading spinner, delayed train highlighting
+
+### Configuration Examples
+
+#### Multiple Stations with Selector
+```yaml
+type: custom:caltrain-tracker-card
+entities:
+  - sensor.caltrain_palo_alto_northbound
+  - sensor.caltrain_palo_alto_southbound
+show_station_selector: true
+name: Palo Alto Stations
+```
+
+#### GPS-Based Nearest Station
+```yaml
+type: custom:caltrain-tracker-card
+entities:
+  - sensor.caltrain_palo_alto_northbound
+  - sensor.caltrain_san_antonio_northbound
+use_gps: true
+gps_entity: person.alex
+name: Nearest Station
+```
+
+### Backend Improvements
+
+- **Coordinator**: Now captures delay field from GTFS feed (ready when Caltrain populates it)
+- **Sensor**: Passes delay and scheduled_time to card attributes
+- **Operating Hours Check**: Built-in validation prevents API calls during non-service hours
+
+### Known Limitations
+
+- Caltrain's GTFS feed currently doesn't populate the `delay` field
+- Code is ready to display delays once Caltrain adds this data to their feed
+
+### Upgrade Instructions
+
+1. Copy `dist/caltrain-tracker-card.js` to `/config/www/`
+2. Restart Home Assistant (for backend changes)
+3. Clear browser cache (Ctrl+Shift+R)
+4. Update card configuration with new options
+
+---
+
 # Release v1.1.0 - Real-Time Train Tracking
 
 ## ✨ New Feature: Live Train Positions on Map

@@ -83,12 +83,18 @@ class CaltrainDataCoordinator(DataUpdateCoordinator):
             # Extract stop time updates
             stop_updates = []
             for stop_time_update in trip_update.stop_time_update:
-                stop_updates.append({
+                stop_data = {
                     "stop_id": stop_time_update.stop_id,
                     "arrival_time": stop_time_update.arrival.time if stop_time_update.HasField("arrival") else None,
                     "departure_time": stop_time_update.departure.time if stop_time_update.HasField("departure") else None,
                     "sequence": stop_time_update.stop_sequence,
-                })
+                }
+                
+                # Add delay if available from GTFS feed
+                if stop_time_update.HasField("arrival") and stop_time_update.arrival.HasField("delay"):
+                    stop_data["delay"] = stop_time_update.arrival.delay
+                
+                stop_updates.append(stop_data)
             
             trips_data.append({
                 "trip_id": trip_update.trip.trip_id,
@@ -151,12 +157,20 @@ class CaltrainDataCoordinator(DataUpdateCoordinator):
                     arrival_time = stop["arrival_time"]
                     if arrival_time and arrival_time > current_time:
                         eta_minutes = int((arrival_time - current_time) / 60)
-                        upcoming_trains.append({
+                        train_data = {
                             "trip_id": trip["trip_id"],
                             "route": trip["route_id"],
                             "eta_minutes": eta_minutes,
                             "arrival_time": arrival_time,
-                        })
+                        }
+                        
+                        # Add delay information if available from GTFS feed
+                        # Note: GTFS Realtime delay field may not always be present
+                        # If not present, delay will be None
+                        if "delay" in stop:
+                            train_data["delay"] = stop["delay"]
+                        
+                        upcoming_trains.append(train_data)
         
         # Sort by arrival time and limit results
         upcoming_trains.sort(key=lambda x: x["arrival_time"])
