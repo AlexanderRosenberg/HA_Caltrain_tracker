@@ -44,14 +44,25 @@ A beautiful custom Lovelace card for the [Caltrain Tracker integration](https://
 
 ## Configuration
 
-### Visual Editor
+### Visual Editor (Recommended)
 
-1. Add card to dashboard
+The card includes a built-in visual configuration editor:
+
+1. Click "Add Card" in your Lovelace dashboard
 2. Search for "Caltrain Tracker Card"
-3. Select your station entity
-4. Configure options
+3. Configure options using the visual interface:
+   - **Single Station Entity**: Choose one station sensor (optional)
+   - **Multiple Entities**: Enter comma-separated entities for selector/GPS
+   - **Card Name**: Custom title (optional)
+   - **Maximum Trains**: Number of trains to display (1-10)
+   - **Show Service Alerts**: Toggle alert display
+   - **Show Station Selector**: Enable/disable dropdown (auto-shows with multiple entities)
+   - **Use GPS Proximity**: Auto-select nearest station
+   - **GPS Entity**: Select your device tracker or person entity
 
-### YAML
+The visual editor automatically detects all Caltrain sensors in your system and provides dropdowns for easy selection.
+
+### YAML (Advanced)
 
 ```yaml
 type: custom:caltrain-tracker-card

@@ -50,6 +50,20 @@ export class CaltrainTrackerCard extends LitElement {
     this._config = config;
   }
 
+  public static getConfigElement() {
+    return document.createElement('caltrain-tracker-card-editor');
+  }
+
+  public static getStubConfig() {
+    return {
+      type: 'custom:caltrain-tracker-card',
+      entity: '',
+      name: 'Caltrain Station',
+      show_alerts: true,
+      max_trains: 2,
+    };
+  }
+
   public getCardSize(): number {
     const maxTrains = this._config.max_trains || 3;
     const showAlerts = this._config.show_alerts !== false;
@@ -725,6 +739,274 @@ export class CaltrainTrackerCard extends LitElement {
   }
 }
 
+// Visual Editor
+@customElement('caltrain-tracker-card-editor')
+export class CaltrainTrackerCardEditor extends LitElement {
+  @property({ attribute: false }) public hass!: HomeAssistant;
+  @state() private _config!: CaltrainCardConfig;
+
+  public setConfig(config: CaltrainCardConfig): void {
+    this._config = config;
+  }
+
+  private _valueChanged(ev: CustomEvent): void {
+    if (!this._config || !this.hass) {
+      return;
+    }
+
+    const target = ev.target as any;
+    const value = target.value;
+
+    if (target.configValue) {
+      const newConfig = {
+        ...this._config,
+        [target.configValue]: target.checked !== undefined ? target.checked : value,
+      };
+
+      const event = new CustomEvent('config-changed', {
+        detail: { config: newConfig },
+        bubbles: true,
+        composed: true,
+      });
+      this.dispatchEvent(event);
+    }
+  }
+
+  private _entitiesChanged(ev: CustomEvent): void {
+    if (!this._config || !this.hass) {
+      return;
+    }
+
+    const target = ev.target as any;
+    const entities = target.value ? target.value.split(',').map((e: string) => e.trim()).filter(Boolean) : [];
+
+    const newConfig = {
+      ...this._config,
+      entities: entities.length > 0 ? entities : undefined,
+    };
+
+    // If we have entities, remove single entity
+    if (entities.length > 0) {
+      delete newConfig.entity;
+    }
+
+    const event = new CustomEvent('config-changed', {
+      detail: { config: newConfig },
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
+  }
+
+  protected render() {
+    if (!this.hass || !this._config) {
+      return html``;
+    }
+
+    const caltrainEntities = Object.keys(this.hass.states).filter(
+      (eid) => eid.startsWith('sensor.') && eid.includes('caltrain')
+    );
+
+    const entities = this._config.entities?.join(', ') || '';
+
+    return html`
+      <div class="card-config">
+        <div class="option">
+          <label class="label">Single Station Entity (optional)</label>
+          <select
+            .configValue=${'entity'}
+            .value=${this._config.entity || ''}
+            @change=${this._valueChanged}
+          >
+            <option value="">None (use multiple entities below)</option>
+            ${caltrainEntities.map(
+              (entity) => html`
+                <option value="${entity}" ?selected=${entity === this._config.entity}>
+                  ${this.hass.states[entity].attributes.station_name || entity}
+                </option>
+              `
+            )}
+          </select>
+          <div class="description">Select a single Caltrain station sensor</div>
+        </div>
+
+        <div class="option">
+          <label class="label">Multiple Entities (comma-separated)</label>
+          <input
+            type="text"
+            .value=${entities}
+            @input=${this._entitiesChanged}
+            placeholder="sensor.caltrain_palo_alto_northbound, sensor.caltrain_palo_alto_southbound"
+          />
+          <div class="description">
+            Enter multiple station entities for selector/GPS features. Overrides single entity if provided.
+          </div>
+        </div>
+
+        <div class="option">
+          <label class="label">Card Name (optional)</label>
+          <input
+            type="text"
+            .configValue=${'name'}
+            .value=${this._config.name || ''}
+            @input=${this._valueChanged}
+            placeholder="Caltrain Station"
+          />
+          <div class="description">Custom title for the card</div>
+        </div>
+
+        <div class="option">
+          <label class="label">Maximum Trains</label>
+          <input
+            type="number"
+            .configValue=${'max_trains'}
+            .value=${this._config.max_trains || 2}
+            @input=${this._valueChanged}
+            min="1"
+            max="10"
+          />
+          <div class="description">Number of upcoming trains to display (1-10)</div>
+        </div>
+
+        <div class="option">
+          <label class="label">
+            <input
+              type="checkbox"
+              .configValue=${'show_alerts'}
+              .checked=${this._config.show_alerts !== false}
+              @change=${this._valueChanged}
+            />
+            Show Service Alerts
+          </label>
+          <div class="description">Display active service alerts and delays</div>
+        </div>
+
+        <div class="option">
+          <label class="label">
+            <input
+              type="checkbox"
+              .configValue=${'show_station_selector'}
+              .checked=${this._config.show_station_selector !== false}
+              @change=${this._valueChanged}
+            />
+            Show Station Selector
+          </label>
+          <div class="description">
+            Display dropdown to switch stations (auto-enabled with multiple entities)
+          </div>
+        </div>
+
+        <div class="option">
+          <label class="label">
+            <input
+              type="checkbox"
+              .configValue=${'use_gps'}
+              .checked=${this._config.use_gps === true}
+              @change=${this._valueChanged}
+            />
+            Use GPS Proximity
+          </label>
+          <div class="description">Auto-select nearest station based on GPS location</div>
+        </div>
+
+        ${this._config.use_gps
+          ? html`
+              <div class="option">
+                <label class="label">GPS Entity</label>
+                <select
+                  .configValue=${'gps_entity'}
+                  .value=${this._config.gps_entity || ''}
+                  @change=${this._valueChanged}
+                >
+                  <option value="">Select GPS Entity</option>
+                  ${Object.keys(this.hass.states)
+                    .filter(
+                      (eid) =>
+                        eid.startsWith('device_tracker.') || eid.startsWith('person.')
+                    )
+                    .map(
+                      (entity) => html`
+                        <option value="${entity}" ?selected=${entity === this._config.gps_entity}>
+                          ${this.hass.states[entity].attributes.friendly_name || entity}
+                        </option>
+                      `
+                    )}
+                </select>
+                <div class="description">Device tracker or person entity for location</div>
+              </div>
+            `
+          : ''}
+      </div>
+    `;
+  }
+
+  static get styles() {
+    return css`
+      .card-config {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px 0;
+      }
+
+      .option {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .label {
+        font-weight: 500;
+        font-size: 14px;
+        color: var(--primary-text-color);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .description {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        margin-top: 4px;
+      }
+
+      input[type='text'],
+      input[type='number'],
+      select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--divider-color);
+        border-radius: 4px;
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font-size: 14px;
+        font-family: inherit;
+      }
+
+      input[type='text']:focus,
+      input[type='number']:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+      }
+
+      input[type='checkbox'] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+      }
+
+      input[type='number'] {
+        width: 100px;
+      }
+
+      select {
+        cursor: pointer;
+      }
+    `;
+  }
+}
+
 // Register the card with Home Assistant
 (window as any).customCards = (window as any).customCards || [];
 (window as any).customCards.push({
@@ -734,7 +1016,7 @@ export class CaltrainTrackerCard extends LitElement {
 });
 
 console.info(
-  '%c CALTRAIN-TRACKER-CARD %c 1.0.0 ',
+  '%c CALTRAIN-TRACKER-CARD %c 1.3.0 ',
   'color: white; background: #009688; font-weight: 700;',
   'color: #009688; background: white; font-weight: 700;'
 );

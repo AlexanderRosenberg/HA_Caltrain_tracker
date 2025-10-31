@@ -1,27 +1,42 @@
 # Release v1.3.0 - Enhanced Custom Card
 
-## ✨ New Features: Delay Indicators, Refresh Button, Station Selector
+## ✨ New Features: Visual Editor, Delay Indicators, Refresh Button, Station Selector
 
-Major enhancements to the custom Lovelace card!
+Major enhancements to the custom Lovelace card with visual configuration!
 
 ### What's New
 
+- 🎨 **Visual Configuration Editor**: Easy-to-use GUI for card setup - no YAML required!
+  - Auto-detects all Caltrain sensors
+  - Dropdown selections for entities and GPS devices
+  - Live validation and help text
+  - Smart field visibility based on options
 - 🔴 **Delay/Late Train Indicators**: Visual badges show if trains are running late (+Xmin) or early (-Xmin)
 - 🔄 **Manual Refresh Button**: Refresh train data on-demand, respects operating hours (Weekdays 4AM-1AM, Weekends 6AM-1AM)
 - 📍 **Station Selector**: Dropdown to switch between multiple configured stations
 - 🧭 **GPS Proximity**: Auto-select nearest station based on your device tracker or person entity
 - 🎫 **Trip ID Display**: See trip numbers next to route names
-- 🎨 **Enhanced UI**: New CSS animations, loading spinner, delayed train highlighting
+- ✨ **Enhanced UI**: New CSS animations, loading spinner, delayed train highlighting
 
-### Configuration Examples
+### Configuration
 
-#### Multiple Stations with Selector
+#### Using Visual Editor (Recommended)
+1. Click "Add Card" in your dashboard
+2. Search for "Caltrain Tracker Card"
+3. Use the visual interface to:
+   - Select entities from dropdown
+   - Configure options with checkboxes
+   - Choose GPS entity if using proximity
+4. Save - no YAML needed!
+
+#### YAML Examples
+
+**Multiple Stations with Selector**
 ```yaml
 type: custom:caltrain-tracker-card
 entities:
   - sensor.caltrain_palo_alto_northbound
   - sensor.caltrain_palo_alto_southbound
-show_station_selector: true
 name: Palo Alto Stations
 ```
 

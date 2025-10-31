@@ -1,14 +1,29 @@
 # Card Enhancements - Version 1.3.0
 
 ## Overview
-The custom Caltrain tracker card has been enhanced with three major features:
-1. **Delay indicators** - Shows if trains are running late
-2. **Manual refresh button** - Refresh data on-demand with operating hours respect
-3. **Station selector** - Choose from multiple stations or use GPS proximity
+The custom Caltrain tracker card has been enhanced with four major features:
+1. **Visual Configuration Editor** - Easy-to-use GUI for card setup
+2. **Delay indicators** - Shows if trains are running late
+3. **Manual refresh button** - Refresh data on-demand with operating hours respect
+4. **Station selector** - Choose from multiple stations or use GPS proximity
 
 ## New Features
 
-### 1. Delay/Late Train Indicators
+### 1. Visual Configuration Editor
+- **Built-in GUI**: No need to write YAML for basic configuration
+- **Auto-detection**: Automatically finds all Caltrain sensor entities
+- **Dropdowns**: Easy selection for entities and GPS devices
+- **Live Preview**: See changes as you configure
+- **Field Validation**: Smart field visibility based on options
+- **Help Text**: Descriptions for each configuration option
+
+**How to Use:**
+1. Add card in Lovelace UI
+2. Search "Caltrain Tracker Card"
+3. Configure using visual interface
+4. Save and done!
+
+### 2. Delay/Late Train Indicators
 - Displays delay badges on trains that are running late or early
 - **Late trains** show a red badge: `+Xmin` (X = minutes late)
 - **Early trains** show a green badge: `-Xmin` (X = minutes early)
@@ -16,7 +31,7 @@ The custom Caltrain tracker card has been enhanced with three major features:
 - Trip IDs are now displayed next to route names
 - **Note**: Currently the GTFS feed does not provide delay data in the `delay` field. The backend is ready to display it when/if Caltrain adds this to their feed.
 
-### 2. Manual Refresh Button
+### 3. Manual Refresh Button
 - Click the refresh icon button to manually update train data
 - Button shows a spinning animation while refreshing
 - **Respects operating hours**: Disabled outside of train service times
@@ -24,7 +39,7 @@ The custom Caltrain tracker card has been enhanced with three major features:
   - **Weekends**: 6:00 AM - 1:00 AM
 - Prevents unnecessary API calls during non-service hours
 
-### 3. Station Selector & GPS Proximity
+### 4. Station Selector & GPS Proximity
 - When multiple stations are configured, a dropdown selector appears
 - Select any station from the dropdown to view its trains
 - **GPS-based station selection**: Automatically selects the closest station
@@ -91,6 +106,8 @@ name: Nearest Station
 - ✅ Backend ready to pass delay data when Caltrain adds it to their feed
 
 ### Frontend (Custom Card)
+- ✅ **NEW**: Visual configuration editor with GUI
+- ✅ **NEW**: Auto-detection of Caltrain entities
 - ✅ Added delay badge display with color coding (red=late, green=early)
 - ✅ Implemented manual refresh button with operating hours check
 - ✅ Created station selector dropdown for multiple entities
@@ -101,7 +118,7 @@ name: Nearest Station
 
 ### Build
 - ✅ Card rebuilt from TypeScript source
-- ✅ Output: `dist/caltrain-tracker-card.js` (31KB, up from 26KB)
+- ✅ Output: `dist/caltrain-tracker-card.js` (38KB with visual editor)
 
 ## Installation/Update
 
@@ -118,6 +135,10 @@ name: Nearest Station
 
 ## Testing Checklist
 
+- [ ] **Visual editor opens** when adding/editing card
+- [ ] **Entity dropdowns populate** with Caltrain sensors
+- [ ] **GPS entity dropdown** shows device trackers and persons
+- [ ] **Configuration saves** and applies correctly
 - [ ] Card displays with new refresh button
 - [ ] Refresh button works and respects operating hours
 - [ ] Multiple stations show dropdown selector (if configured)
