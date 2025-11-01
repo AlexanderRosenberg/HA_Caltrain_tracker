@@ -24,8 +24,8 @@ async def async_setup_entry(
     """Set up Caltrain sensors based on a config entry."""
     coordinator: CaltrainDataCoordinator = hass.data[DOMAIN][entry.entry_id]
     
-    # Get selected stations from config
-    selected_stations = entry.data.get(CONF_STATIONS, [])
+    # Get selected stations from options (if updated) or original config
+    selected_stations = entry.options.get(CONF_STATIONS) or entry.data.get(CONF_STATIONS, [])
     
     # Convert station names to stop IDs
     stop_ids = []

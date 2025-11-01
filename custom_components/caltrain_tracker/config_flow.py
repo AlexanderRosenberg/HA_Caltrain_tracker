@@ -63,6 +63,11 @@ class CaltrainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.api_key = None
         self.stations = []
 
+    @staticmethod
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        """Get the options flow for this handler."""
+        return CaltrainOptionsFlow(config_entry)
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -126,6 +131,52 @@ class CaltrainConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(
                         CONF_STATIONS,
                         default=list(STATION_NAMES.keys()),  # Default to all stations
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=station_options,
+                            multiple=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                }
+            ),
+            errors=errors,
+        )
+
+
+class CaltrainOptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for Caltrain Tracker."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry):
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options - allow updating station selection."""
+        errors = {}
+
+        if user_input is not None:
+            # Update the config entry with new stations
+            return self.async_create_entry(
+                title="",
+                data={
+                    CONF_STATIONS: user_input.get(CONF_STATIONS, []),
+                },
+            )
+
+        # Get current station selection
+        current_stations = self.config_entry.data.get(CONF_STATIONS, [])
+        station_options = list(STATION_NAMES.keys())
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_STATIONS,
+                        default=current_stations,
                     ): SelectSelector(
                         SelectSelectorConfig(
                             options=station_options,
