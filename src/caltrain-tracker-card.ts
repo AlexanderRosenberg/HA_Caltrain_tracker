@@ -13,6 +13,13 @@ interface CaltrainCardConfig extends LovelaceCardConfig {
   use_gps?: boolean;
   gps_entity?: string; // Device tracker or person entity for GPS
   direction?: 'northbound' | 'southbound' | 'both'; // Direction filter
+  
+  // NEW: Trip planner mode
+  mode?: 'station_list' | 'trip_planner'; // Default: 'station_list'
+  origin_station?: string; // Origin station name (no direction)
+  destination_station?: string; // Destination station name (no direction)
+  trip_entity?: string; // Trip sensor entity (e.g., sensor.caltrain_trip_san_antonio_palo_alto)
+  max_trips?: number; // Number of trips to show (default: 2)
 }
 
 interface NextTrain {
@@ -31,6 +38,28 @@ interface SensorAttributes {
   alerts: any[];
   alert_count: number;
   train_count: number;
+  last_update: string;
+}
+
+interface TripInfo {
+  trip_id: string;
+  route: string;
+  departure: string;
+  arrival: string;
+  departure_in: string;
+  duration: string;
+  stops_between: number;
+  status: string;
+  departure_delay: number;
+  arrival_delay: number;
+}
+
+interface TripSensorAttributes {
+  origin: string;
+  destination: string;
+  direction: string;
+  trips: TripInfo[];
+  trip_count: number;
   last_update: string;
 }
 
@@ -183,6 +212,168 @@ export class CaltrainTrackerCard extends LitElement {
     };
   }
 
+  private _getTripEntity(): string | null {
+    // Use trip_entity if specified
+    if (this._config.trip_entity) {
+      return this._config.trip_entity;
+    }
+    
+    // Auto-generate trip entity ID from origin/destination
+    if (this._config.origin_station && this._config.destination_station) {
+      const origin = this._config.origin_station.toLowerCase().replace(/\s+/g, '_');
+      const dest = this._config.destination_station.toLowerCase().replace(/\s+/g, '_');
+      return `sensor.caltrain_trip_${origin}_${dest}`;
+    }
+    
+    return null;
+  }
+
+  private _getTripAttributes(): TripSensorAttributes | null {
+    const tripEntity = this._getTripEntity();
+    if (!tripEntity || !this.hass.states[tripEntity]) {
+      return null;
+    }
+    
+    return this.hass.states[tripEntity].attributes as TripSensorAttributes;
+  }
+
+  private _renderTripPlanner() {
+    const tripEntity = this._getTripEntity();
+    
+    if (!tripEntity) {
+      return html`
+        <ha-card>
+          <div class="card-content error">
+            <ha-icon icon="mdi:alert-circle"></ha-icon>
+            <p>Please configure origin and destination stations</p>
+          </div>
+        </ha-card>
+      `;
+    }
+
+    const stateObj = this.hass.states[tripEntity];
+    if (!stateObj) {
+      return html`
+        <ha-card>
+          <div class="card-content error">
+            <ha-icon icon="mdi:alert-circle"></ha-icon>
+            <p>Trip sensor not found. Please ensure the integration is configured for this trip.</p>
+            <p><small>Looking for: ${tripEntity}</small></p>
+          </div>
+        </ha-card>
+      `;
+    }
+
+    const attributes = this._getTripAttributes();
+    if (!attributes || !attributes.trips) {
+      return html`
+        <ha-card>
+          <div class="card-content error">
+            <ha-icon icon="mdi:alert-circle"></ha-icon>
+            <p>No trip data available</p>
+          </div>
+        </ha-card>
+      `;
+    }
+
+    const state = stateObj.state;
+    const nextDepartureTime = state !== 'No trips' ? state : null;
+
+    return html`
+      <ha-card>
+        <div class="card-header">
+          <div class="header-content">
+            <ha-icon icon="mdi:train-car-passenger"></ha-icon>
+            <div class="header-text">
+              <div class="name trip-title">
+                ${attributes.origin} 
+                <ha-icon icon="mdi:arrow-right" class="arrow-icon"></ha-icon> 
+                ${attributes.destination}
+              </div>
+              <div class="direction">
+                ${attributes.direction} • ${attributes.trip_count} ${attributes.trip_count === 1 ? 'trip' : 'trips'} available
+              </div>
+            </div>
+          </div>
+          <button 
+            class="refresh-button ${this._isRefreshing ? 'refreshing' : ''}"
+            @click=${this._handleRefresh}
+            ?disabled=${!this._isWithinOperatingHours() || this._isRefreshing}
+            title="${this._isWithinOperatingHours() ? 'Refresh data' : 'Outside operating hours'}"
+          >
+            <ha-icon icon="mdi:refresh"></ha-icon>
+          </button>
+        </div>
+
+        <div class="card-content">
+          ${attributes.trips.length === 0
+            ? html`
+                <div class="no-trips">
+                  <ha-icon icon="mdi:information-outline"></ha-icon>
+                  <p>No trips available at this time</p>
+                </div>
+              `
+            : html`
+                <div class="trips-list">
+                  ${attributes.trips.map(
+                    (trip, index) => {
+                      const routeInfo = this._getRouteInfo(trip.route);
+                      const isNext = index === 0;
+                      
+                      return html`
+                        <div class="trip-item ${isNext ? 'next-trip' : ''}" style="border-left-color: ${routeInfo.color}">
+                          <div class="trip-header">
+                            <div class="trip-route">
+                              <ha-icon icon="${routeInfo.icon}" style="color: ${routeInfo.color}"></ha-icon>
+                              <span class="route-name" style="color: ${routeInfo.color}">${routeInfo.label}</span>
+                              <span class="trip-id">${trip.trip_id}</span>
+                            </div>
+                            <div class="trip-status ${trip.status === 'On time' ? 'on-time' : 'delayed'}">
+                              ${trip.status === 'On time'
+                                ? html`<ha-icon icon="mdi:check-circle"></ha-icon>`
+                                : trip.departure_delay > 0
+                                ? html`<ha-icon icon="mdi:clock-alert-outline"></ha-icon>`
+                                : html`<ha-icon icon="mdi:clock-fast"></ha-icon>`}
+                              ${trip.status}
+                            </div>
+                          </div>
+                          
+                          <div class="trip-times">
+                            <div class="time-block">
+                              <div class="time-label">Departs</div>
+                              <div class="time-value">${trip.departure}</div>
+                              <div class="time-countdown">${trip.departure_in}</div>
+                            </div>
+                            
+                            <div class="time-arrow">
+                              <ha-icon icon="mdi:arrow-right"></ha-icon>
+                              <div class="duration">${trip.duration}</div>
+                            </div>
+                            
+                            <div class="time-block">
+                              <div class="time-label">Arrives</div>
+                              <div class="time-value">${trip.arrival}</div>
+                            </div>
+                          </div>
+                          
+                          <div class="trip-details">
+                            <span>${trip.stops_between} intermediate ${trip.stops_between === 1 ? 'stop' : 'stops'}</span>
+                          </div>
+                        </div>
+                      `;
+                    }
+                  )}
+                </div>
+              `}
+        </div>
+
+        <div class="card-footer">
+          <span>Last updated: ${new Date(attributes.last_update).toLocaleTimeString()}</span>
+        </div>
+      </ha-card>
+    `;
+  }
+
   private _isWithinOperatingHours(): boolean {
     const now = new Date();
     const hour = now.getHours();
@@ -309,6 +500,14 @@ export class CaltrainTrackerCard extends LitElement {
       return html``;
     }
 
+    // Check mode and render accordingly
+    const mode = this._config.mode || 'station_list';
+    
+    if (mode === 'trip_planner') {
+      return this._renderTripPlanner();
+    }
+
+    // Default: station_list mode
     const currentEntity = this._getCurrentEntity();
     if (!currentEntity) {
       return html`
@@ -887,6 +1086,158 @@ export class CaltrainTrackerCard extends LitElement {
         --mdc-icon-size: 48px;
         margin-bottom: 12px;
       }
+
+      /* Trip Planner Styles */
+      .trip-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .arrow-icon {
+        --mdc-icon-size: 20px;
+        color: var(--primary-color);
+      }
+
+      .trips-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .trip-item {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+        background: var(--card-background-color);
+        border: 1px solid var(--divider-color);
+        border-left: 4px solid var(--primary-color);
+        border-radius: 8px;
+        transition: all 0.2s ease;
+      }
+
+      .trip-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .trip-item.next-trip {
+        background: rgba(var(--primary-color-rgb, 3, 169, 244), 0.05);
+        border-color: var(--primary-color);
+      }
+
+      .trip-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .trip-route {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .trip-route ha-icon {
+        --mdc-icon-size: 24px;
+      }
+
+      .trip-status {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 12px;
+        background: var(--success-color, #66bb6a);
+        color: white;
+      }
+
+      .trip-status.delayed {
+        background: var(--error-color, #ff5252);
+      }
+
+      .trip-status ha-icon {
+        --mdc-icon-size: 14px;
+      }
+
+      .trip-times {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 12px;
+        background: rgba(var(--primary-color-rgb, 3, 169, 244), 0.03);
+        border-radius: 8px;
+      }
+
+      .time-block {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+      }
+
+      .time-block .time-label {
+        font-size: 11px;
+        color: var(--secondary-text-color);
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+
+      .time-block .time-value {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--primary-text-color);
+      }
+
+      .time-countdown {
+        font-size: 12px;
+        color: var(--primary-color);
+        font-weight: 600;
+      }
+
+      .time-arrow {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        color: var(--secondary-text-color);
+      }
+
+      .time-arrow ha-icon {
+        --mdc-icon-size: 24px;
+      }
+
+      .duration {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--primary-color);
+      }
+
+      .trip-details {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        text-align: center;
+      }
+
+      .no-trips {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+        color: var(--secondary-text-color);
+        text-align: center;
+      }
+
+      .no-trips ha-icon {
+        --mdc-icon-size: 48px;
+        margin-bottom: 12px;
+        opacity: 0.5;
+      }
     `;
   }
 }
@@ -1000,47 +1351,121 @@ export class CaltrainTrackerCardEditor extends LitElement implements LovelaceCar
 
     const selectedEntities = this._config.entities || [];
 
+    const mode = this._config.mode || 'station_list';
+
+    // Get unique station names (no direction suffix) for trip planner
+    const uniqueStations = new Set<string>();
+    Object.values(this.hass.states).forEach(state => {
+      if (state.entity_id.startsWith('sensor.') && state.entity_id.includes('caltrain') && state.attributes.station_name) {
+        uniqueStations.add(state.attributes.station_name);
+      }
+    });
+    const uniqueStationNames = Array.from(uniqueStations).sort();
+
     return html`
       <div class="card-config">
         <div class="option">
-          <label class="label">Direction Filter</label>
+          <label class="label">Card Mode</label>
           <select
-            .configValue=${'direction'}
-            .value=${this._config.direction || 'both'}
+            .configValue=${'mode'}
+            .value=${mode}
             @change=${this._valueChanged}
           >
-            <option value="both">Both Directions</option>
-            <option value="northbound">Northbound Only</option>
-            <option value="southbound">Southbound Only</option>
+            <option value="station_list">Station List</option>
+            <option value="trip_planner">Trip Planner</option>
           </select>
-          <div class="description">Filter stations by direction</div>
+          <div class="description">
+            Station List: Show next trains at selected stations<br>
+            Trip Planner: Plan a trip between two stations
+          </div>
         </div>
 
-        <div class="option">
-          <label class="label">Select Stations</label>
-          <div class="station-checkboxes">
-            ${filteredEntities.length === 0
-              ? html`<div class="no-stations">No Caltrain stations found</div>`
-              : filteredEntities.map(entityId => {
-                  const entity = this.hass.states[entityId];
-                  const stationName = entity.attributes.station_name || entityId;
-                  const direction = entity.attributes.direction || '';
-                  return html`
-                    <label class="checkbox-label">
-                      <input
-                        type="checkbox"
-                        .checked=${selectedEntities.includes(entityId)}
-                        @change=${(ev: Event) => this._entityCheckboxChanged(ev, entityId)}
-                      />
-                      <span>${stationName} - ${direction}</span>
-                    </label>
-                  `;
-                })}
-          </div>
-          <div class="description">
-            Select one or more stations to display. Multiple stations enable GPS proximity and station selector.
-          </div>
-        </div>
+        ${mode === 'trip_planner'
+          ? html`
+              <div class="option">
+                <label class="label">Origin Station</label>
+                <select
+                  .configValue=${'origin_station'}
+                  .value=${this._config.origin_station || ''}
+                  @change=${this._valueChanged}
+                >
+                  <option value="">-- Select Origin --</option>
+                  ${uniqueStationNames.map(
+                    station => html`<option value="${station}">${station}</option>`
+                  )}
+                </select>
+                <div class="description">Where your trip starts</div>
+              </div>
+
+              <div class="option">
+                <label class="label">Destination Station</label>
+                <select
+                  .configValue=${'destination_station'}
+                  .value=${this._config.destination_station || ''}
+                  @change=${this._valueChanged}
+                >
+                  <option value="">-- Select Destination --</option>
+                  ${uniqueStationNames.map(
+                    station => html`<option value="${station}">${station}</option>`
+                  )}
+                </select>
+                <div class="description">Where your trip ends</div>
+              </div>
+
+              <div class="option">
+                <label class="label">Number of Trips to Show</label>
+                <input
+                  type="number"
+                  .configValue=${'max_trips'}
+                  .value=${this._config.max_trips || 2}
+                  min="1"
+                  max="5"
+                  @change=${this._valueChanged}
+                />
+                <div class="description">Show next 1-5 available trips (default: 2)</div>
+              </div>
+            `
+          : html`
+              <div class="option">
+                <label class="label">Direction Filter</label>
+                <select
+                  .configValue=${'direction'}
+                  .value=${this._config.direction || 'both'}
+                  @change=${this._valueChanged}
+                >
+                  <option value="both">Both Directions</option>
+                  <option value="northbound">Northbound Only</option>
+                  <option value="southbound">Southbound Only</option>
+                </select>
+                <div class="description">Filter stations by direction</div>
+              </div>
+
+              <div class="option">
+                <label class="label">Select Stations</label>
+                <div class="station-checkboxes">
+                  ${filteredEntities.length === 0
+                    ? html`<div class="no-stations">No Caltrain stations found</div>`
+                    : filteredEntities.map(entityId => {
+                        const entity = this.hass.states[entityId];
+                        const stationName = entity.attributes.station_name || entityId;
+                        const direction = entity.attributes.direction || '';
+                        return html`
+                          <label class="checkbox-label">
+                            <input
+                              type="checkbox"
+                              .checked=${selectedEntities.includes(entityId)}
+                              @change=${(ev: Event) => this._entityCheckboxChanged(ev, entityId)}
+                            />
+                            <span>${stationName} - ${direction}</span>
+                          </label>
+                        `;
+                      })}
+                </div>
+                <div class="description">
+                  Select one or more stations to display. Multiple stations enable GPS proximity and station selector.
+                </div>
+              </div>
+            `}
 
         <div class="option">
           <label class="label">Card Name (optional)</label>

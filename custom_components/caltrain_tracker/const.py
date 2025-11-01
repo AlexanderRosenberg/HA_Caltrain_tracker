@@ -94,6 +94,62 @@ STATION_NAMES = {
     for stop_id, station in STATIONS.items()
 }
 
+# Unique station names (without direction suffix) - for trip planner
+UNIQUE_STATION_NAMES = sorted(set(
+    station['name'] for station in STATIONS.values()
+))
+
 # Sensor types
 SENSOR_TYPE_NEXT_TRAIN = "next_train"
 SENSOR_TYPE_SERVICE_ALERTS = "service_alerts"
+SENSOR_TYPE_TRIP = "trip"  # NEW: Trip planner sensor
+
+
+def get_station_by_name(name: str) -> dict | None:
+    """Get station data by name (returns first match with full data)."""
+    for stop_id, station in STATIONS.items():
+        if station['name'] == name:
+            return {'stop_id': stop_id, **station}
+    return None
+
+
+def get_station_stop_ids(name: str) -> dict:
+    """Get both northbound and southbound stop IDs for a station."""
+    stops = {'Northbound': None, 'Southbound': None}
+    for stop_id, station in STATIONS.items():
+        if station['name'] == name:
+            stops[station['direction']] = stop_id
+    return stops
+
+
+def get_travel_direction(origin_name: str, dest_name: str) -> str | None:
+    """
+    Determine travel direction based on station positions.
+    
+    Returns:
+        'Northbound' if traveling north (to lower zone/higher latitude)
+        'Southbound' if traveling south (to higher zone/lower latitude)
+        None if invalid (same station or not found)
+    """
+    origin = get_station_by_name(origin_name)
+    dest = get_station_by_name(dest_name)
+    
+    if not origin or not dest:
+        return None
+    
+    # Same station = invalid
+    if origin_name == dest_name:
+        return None
+    
+    # Method 1: Compare zone numbers (most reliable)
+    if origin['zone'] < dest['zone']:
+        return 'Southbound'  # Going south (higher zone numbers)
+    elif origin['zone'] > dest['zone']:
+        return 'Northbound'  # Going north (lower zone numbers)
+    
+    # Method 2: Same zone - compare latitude
+    # (Higher latitude = more north)
+    if origin['lat'] > dest['lat']:
+        return 'Southbound'  # Going south (lower latitude)
+    else:
+        return 'Northbound'  # Going north (higher latitude)

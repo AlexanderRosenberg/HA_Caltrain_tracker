@@ -1,0 +1,5 @@
+# This file ensures the branding directory is tracked by git
+# Place your logo files here:
+# - logo_original.png (your source logo)
+# - icon.png (256x256 for submission)
+# - icon@2x.png (512x512 for submission)

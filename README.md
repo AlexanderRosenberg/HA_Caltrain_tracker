@@ -2,14 +2,15 @@
 
 A custom Home Assistant integration that provides real-time Caltrain train tracking, arrival predictions, and service alerts using the 511 SF Bay API.
 
-**Now includes a beautiful custom Lovelace card!** 🎨
+**Now includes trip planner with smart direction detection!** 🎨✨
 
 ## Features
 
 - 🚂 **Real-time ETAs**: Get minute-by-minute updates for next arriving trains
 - 🗺️ **Live Train Tracking**: See trains moving on your Home Assistant map in real-time
-- 🎴 **Custom Dashboard Card**: Beautiful card for your Lovelace dashboards ([see below](#custom-card))
-- 📍 **Multiple Stations**: Track San Antonio and Palo Alto stations (both directions)
+- 🎴 **Trip Planner Mode**: Select origin and destination - no need to specify direction! (NEW in v1.5.0)
+- 🧭 **Smart Direction Detection**: Automatically determines northbound/southbound based on station zones
+- 📍 **28 Caltrain Stations**: Track any station from SF to Tamien
 - ⚠️ **Service Alerts**: Stay informed about delays and service disruptions
 - 🔄 **Auto-updating**: Data refreshes every 30 seconds
 - 🎨 **Easy Setup**: Simple configuration flow with API key validationracker for Home Assistant
@@ -220,8 +221,12 @@ content: |
 We've created a beautiful custom Lovelace card specifically for this integration!
 
 **Features:**
-- 📊 Clean, modern design
-- ⏱️ Color-coded ETAs (red/orange/green)
+- 📊 Clean, modern design with dual modes
+- 🗺️ **Trip Planner Mode**: Select origin/destination for real-time trip ETAs (NEW v1.5.0)
+- 🧭 **Smart Direction Detection**: No need to specify northbound/southbound
+- ⏱️ Color-coded train types (Baby Bullet, Limited, Local)
+- 🚆 Trip duration, intermediate stops, and delay status
+- ⏰ Countdown timers for departures
 - ⚠️ Service alerts display
 - 🎨 Theme-aware styling
 - 📱 Mobile responsive
@@ -235,17 +240,55 @@ We've created a beautiful custom Lovelace card specifically for this integration
 
 2. **Manual**: Copy `dist/caltrain-tracker-card.js` to `/config/www/`
 
-**Usage:**
+**Usage - Trip Planner Mode (NEW):**
 
 ```yaml
 type: custom:caltrain-tracker-card
+mode: trip_planner
+origin_station: San Antonio
+destination_station: Palo Alto
+max_trips: 2  # Show next 2 trains
+```
+
+**Usage - Station List Mode:**
+
+```yaml
+type: custom:caltrain-tracker-card
+mode: station_list
 entity: sensor.caltrain_palo_alto_northbound
 name: "My Commute"
 max_trains: 3
 show_alerts: true
 ```
 
-**Full Documentation:** See [CARD_README.md](CARD_README.md)
+**What's New in v1.5.0:**
+
+✨ **Trip Planner Features:**
+- Select any origin and destination station
+- Automatic direction detection (no more northbound/southbound selection)
+- Real-time trip duration and ETA
+- Countdown timers ("departs in 3 min")
+- Number of stops between origin and destination
+- Color-coded train types (Baby Bullet 🔴, Limited 🟠, Local 🟢)
+- On-time/delayed status indicators
+- Next trip highlighting
+
+📊 **Trip Display Example:**
+
+```
+🚆 San Antonio → Palo Alto
+Northbound • 2 trips available
+
+🔴 BABY BULLET #501
+02:34 PM (in 3 min) → 02:42 PM
+Duration: 8 min • 2 stops • On time
+
+🟢 LOCAL #268
+03:04 PM (in 33 min) → 03:15 PM  
+Duration: 11 min • 4 stops • Delayed 2 min
+```
+
+**Full Documentation:** See [CARD_README.md](CARD_README.md) and [RELEASE_NOTES_v1.5.0.md](RELEASE_NOTES_v1.5.0.md)
 
 ## Troubleshooting
 
@@ -280,20 +323,57 @@ show_alerts: true
 - **Data Format**: Protocol Buffers (GTFS Realtime)
 - **Dependencies**: `gtfs-realtime-bindings`, `protobuf`
 
-## Future Enhancements
+## Version History
 
-- [ ] Support for all Caltrain stations (32 total)
-- [ ] Device tracker for train GPS positions
-- [ ] Nearest station based on GPS location
-- [ ] Home/Work trip sensors
-- [ ] Custom Lovelace card with Mushroom theme
+### v1.5.0 - Trip Planner Release (Current)
+- ✨ Trip planner mode with origin/destination selection
+- ✨ Smart direction detection algorithm (no need to specify northbound/southbound)
+- ✨ Real-time trip duration and ETA calculations
+- ✨ Countdown timers and delay status
+- ✨ Color-coded train types (Baby Bullet, Limited, Local)
+- ✨ Visual editor with mode selector
+- 📦 28 stations supported
+- See [RELEASE_NOTES_v1.5.0.md](RELEASE_NOTES_v1.5.0.md) for full details
+
+### v1.4.0 - Station List Enhancements
+- ✅ All 28 Caltrain stations supported
+- ✅ Options flow for reconfiguration
+- ✅ Improved station list display
+
+### v1.1.0 - Device Tracker
+- ✅ Real-time train GPS tracking
+- ✅ Map card integration
+
+## Future Enhancements (v1.6.0+)
+
+- [ ] Multi-leg trips (Caltrain → BART transfers)
+- [ ] Fare calculation
+- [ ] Platform/track numbers (if API adds)
+- [ ] Push notifications for departures
+- [ ] Alternative routes (BART/bus)
+- [ ] Saved trips / frequent routes
+- [ ] Calendar integration
 - [ ] Historical delay tracking
+- [ ] Accessibility info (wheelchair accessible trains)
+- [ ] Real-time crowding info (if API adds)
+
+## Branding
+
+This integration has custom branding for HACS and Home Assistant integration displays.
+
+**Logo Submission**: To display the Caltrain Tracker logo in HACS and HA settings:
+1. See [BRANDING_GUIDE.md](BRANDING_GUIDE.md) for complete instructions
+2. See [branding/LOGO_SUBMISSION_CHECKLIST.md](branding/LOGO_SUBMISSION_CHECKLIST.md) for quick steps
+3. Logo must be submitted to [home-assistant/brands](https://github.com/home-assistant/brands) repository
+
+**Status**: Logo designed, pending submission to Home Assistant brands repository.
 
 ## Support
 
 For issues, questions, or contributions:
 - GitHub Issues: [Create an issue](https://github.com/alexrosenberg/HA_Caltrain_tracker/issues)
 - Documentation: See `/docs` folder for detailed technical information
+- Branding: See [BRANDING_GUIDE.md](BRANDING_GUIDE.md) for logo submission
 
 ## License
 
@@ -303,3 +383,4 @@ This project is provided as-is for personal use.
 
 - Data provided by 511 SF Bay (https://511.org/)
 - Caltrain operated by Peninsula Corridor Joint Powers Board
+- Logo design: Custom "Transit Tracker" branding

@@ -129,3 +129,103 @@ class CaltrainStationSensor(CoordinatorEntity, SensorEntity):
     def available(self) -> bool:
         """Return if entity is available."""
         return self.coordinator.last_update_success
+
+
+class CaltrainTripSensor(CoordinatorEntity, SensorEntity):
+    """Sensor for trip planning between two stations."""
+
+    def __init__(
+        self,
+        coordinator: CaltrainDataCoordinator,
+        origin_name: str,
+        dest_name: str,
+        max_trips: int = 2,
+    ) -> None:
+        """Initialize the trip sensor."""
+        super().__init__(coordinator)
+        self._origin = origin_name
+        self._destination = dest_name
+        self._max_trips = max_trips
+        self._attr_has_entity_name = True
+        
+        # Create a normalized ID (lowercase, no spaces)
+        origin_id = origin_name.lower().replace(' ', '_')
+        dest_id = dest_name.lower().replace(' ', '_')
+        
+        self._attr_name = f"{origin_name} to {dest_name}"
+        self._attr_unique_id = f"caltrain_trip_{origin_id}_{dest_id}"
+        self._attr_device_class = None
+        self._attr_native_unit_of_measurement = "min"
+        self._attr_icon = "mdi:train-car-passenger"
+
+    @property
+    def native_value(self) -> int | str | None:
+        """Return the state of the sensor (minutes until next departure)."""
+        trips = self.coordinator.get_trip_options(
+            self._origin,
+            self._destination,
+            max_trips=1
+        )
+        
+        if not trips:
+            return "No trips"
+        
+        return trips[0]['departure_in_minutes']
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return trip details."""
+        from .const import get_travel_direction
+        
+        trips = self.coordinator.get_trip_options(
+            self._origin,
+            self._destination,
+            max_trips=self._max_trips
+        )
+        
+        direction = get_travel_direction(self._origin, self._destination)
+        
+        # Format trip information
+        formatted_trips = []
+        for trip in trips:
+            trip_data = {
+                'trip_id': trip['trip_id'],
+                'route': trip['route'],
+                'departure': datetime.fromtimestamp(trip['departure_time']).strftime("%I:%M %p"),
+                'arrival': datetime.fromtimestamp(trip['arrival_time']).strftime("%I:%M %p"),
+                'departure_in': f"{trip['departure_in_minutes']} min",
+                'duration': f"{trip['duration_minutes']} min",
+                'stops_between': trip['stops_between'],
+                'departure_delay': trip['departure_delay'],
+                'arrival_delay': trip['arrival_delay'],
+            }
+            
+            # Add status
+            if trip['departure_delay'] > 60:
+                trip_data['status'] = f"Delayed {trip['departure_delay'] // 60} min"
+            elif trip['departure_delay'] < -60:
+                trip_data['status'] = f"Early {abs(trip['departure_delay']) // 60} min"
+            else:
+                trip_data['status'] = "On time"
+            
+            formatted_trips.append(trip_data)
+        
+        attributes = {
+            'origin': self._origin,
+            'destination': self._destination,
+            'direction': direction,
+            'trips': formatted_trips,
+            'trip_count': len(formatted_trips),
+        }
+        
+        # Add last update time
+        if self.coordinator.data and "last_update" in self.coordinator.data:
+            last_update = self.coordinator.data["last_update"]
+            attributes["last_update"] = last_update.strftime("%Y-%m-%d %H:%M:%S")
+        
+        return attributes
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return self.coordinator.last_update_success

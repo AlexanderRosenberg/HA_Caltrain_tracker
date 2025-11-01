@@ -208,3 +208,87 @@ class CaltrainDataCoordinator(DataUpdateCoordinator):
         
         _LOGGER.debug(f"Fetched {len(vehicles_data)} vehicle positions")
         return vehicles_data
+
+    def get_trip_options(
+        self,
+        origin_name: str,
+        dest_name: str,
+        max_trips: int = 2
+    ) -> list[dict]:
+        """
+        Get next available trips from origin to destination.
+        
+        Args:
+            origin_name: Origin station name (without direction)
+            dest_name: Destination station name (without direction)
+            max_trips: Maximum number of trips to return
+            
+        Returns:
+            List of trip dictionaries with departure/arrival times and details
+        """
+        from .const import get_travel_direction, get_station_stop_ids
+        
+        if not self.data or "trips" not in self.data:
+            return []
+        
+        # Determine direction of travel
+        direction = get_travel_direction(origin_name, dest_name)
+        if not direction:
+            _LOGGER.warning(f"Could not determine direction for {origin_name} to {dest_name}")
+            return []
+        
+        # Get stop IDs for both stations in the travel direction
+        origin_stops = get_station_stop_ids(origin_name)
+        dest_stops = get_station_stop_ids(dest_name)
+        
+        origin_stop = origin_stops.get(direction)
+        dest_stop = dest_stops.get(direction)
+        
+        if not origin_stop or not dest_stop:
+            _LOGGER.warning(f"Could not find stop IDs for {origin_name} ({direction}) or {dest_name} ({direction})")
+            return []
+        
+        # Filter trips that stop at both stations
+        current_time = datetime.now().timestamp()
+        viable_trips = []
+        
+        for trip in self.data["trips"]:
+            # Build a dictionary of stops for this trip
+            stops_dict = {}
+            for stop in trip["stops"]:
+                stops_dict[stop["stop_id"]] = stop
+            
+            # Check if this trip stops at both origin and destination
+            if origin_stop in stops_dict and dest_stop in stops_dict:
+                origin_stop_data = stops_dict[origin_stop]
+                dest_stop_data = stops_dict[dest_stop]
+                
+                # Check if destination comes after origin in stop sequence
+                origin_seq = origin_stop_data.get("sequence", 0)
+                dest_seq = dest_stop_data.get("sequence", 0)
+                
+                if dest_seq > origin_seq:
+                    # Get departure and arrival times
+                    departure_time = origin_stop_data.get("departure_time") or origin_stop_data.get("arrival_time")
+                    arrival_time = dest_stop_data.get("arrival_time") or dest_stop_data.get("departure_time")
+                    
+                    # Only include future trips
+                    if departure_time and arrival_time and departure_time > current_time:
+                        trip_info = {
+                            'trip_id': trip['trip_id'],
+                            'route': trip['route_id'],
+                            'origin_stop': origin_stop,
+                            'dest_stop': dest_stop,
+                            'departure_time': departure_time,
+                            'arrival_time': arrival_time,
+                            'departure_delay': origin_stop_data.get('delay', 0),
+                            'arrival_delay': dest_stop_data.get('delay', 0),
+                            'stops_between': dest_seq - origin_seq - 1,  # Number of intermediate stops
+                            'duration_minutes': int((arrival_time - departure_time) / 60),
+                            'departure_in_minutes': int((departure_time - current_time) / 60),
+                        }
+                        viable_trips.append(trip_info)
+        
+        # Sort by departure time and return next N trips
+        viable_trips.sort(key=lambda x: x['departure_time'])
+        return viable_trips[:max_trips]
