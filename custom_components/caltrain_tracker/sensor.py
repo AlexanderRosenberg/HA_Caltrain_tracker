@@ -43,7 +43,28 @@ async def async_setup_entry(
         for stop_id in stop_ids
     ]
     
+    # Create trip sensors from configuration (if specified)
+    trip_configs = entry.options.get("trips") or entry.data.get("trips", [])
+    for trip_config in trip_configs:
+        origin = trip_config.get("origin")
+        destination = trip_config.get("destination")
+        max_trips = trip_config.get("max_trips", 2)
+        
+        if origin and destination:
+            sensors.append(
+                CaltrainTripSensor(coordinator, origin, destination, max_trips)
+            )
+    
     async_add_entities(sensors)
+    
+    # Store coordinator and add_entities callback for dynamic sensor creation
+    if "_coordinators" not in hass.data[DOMAIN]:
+        hass.data[DOMAIN]["_coordinators"] = {}
+    hass.data[DOMAIN]["_coordinators"][entry.entry_id] = {
+        "coordinator": coordinator,
+        "add_entities": async_add_entities,
+        "trip_sensors": {},
+    }
 
 
 class CaltrainStationSensor(CoordinatorEntity, SensorEntity):

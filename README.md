@@ -242,6 +242,13 @@ We've created a beautiful custom Lovelace card specifically for this integration
 
 **Usage - Trip Planner Mode (NEW):**
 
+**First, create the trip sensor** (one-time setup):
+1. Go to Developer Tools → Services
+2. Select "Caltrain Tracker: Create Trip Sensor"
+3. Enter origin: `San Antonio`, destination: `Palo Alto`
+4. Click "Call Service"
+
+**Then configure the card:**
 ```yaml
 type: custom:caltrain-tracker-card
 mode: trip_planner
@@ -249,6 +256,8 @@ origin_station: San Antonio
 destination_station: Palo Alto
 max_trips: 2  # Show next 2 trains
 ```
+
+**See [docs/TRIP_SENSOR_SETUP.md](docs/TRIP_SENSOR_SETUP.md) for detailed instructions.**
 
 **Usage - Station List Mode:**
 

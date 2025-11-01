@@ -1,0 +1,29 @@
+create_trip_sensor:
+  name: Create Trip Sensor
+  description: Create a new trip planning sensor for a specific origin and destination
+  fields:
+    origin:
+      name: Origin Station
+      description: Name of the origin station (e.g., "San Antonio")
+      required: true
+      example: "San Antonio"
+      selector:
+        text:
+    destination:
+      name: Destination Station
+      description: Name of the destination station (e.g., "Palo Alto")
+      required: true
+      example: "Palo Alto"
+      selector:
+        text:
+    max_trips:
+      name: Maximum Trips
+      description: Maximum number of trips to show (default: 2)
+      required: false
+      default: 2
+      example: 3
+      selector:
+        number:
+          min: 1
+          max: 5
+          mode: slider

@@ -67,6 +67,26 @@ class CaltrainTripSensor
 - `get_station_stop_ids(name)` - Get both N/S stop IDs
 - `UNIQUE_STATION_NAMES` - List of 28 station names (no direction suffix)
 
+### Creating Trip Sensors
+
+**Important**: Trip sensors must be created manually using the new service:
+
+1. Go to **Developer Tools** → **Services**
+2. Select **Caltrain Tracker: Create Trip Sensor**
+3. Fill in origin and destination (e.g., "San Antonio" → "Palo Alto")
+4. Click **"Call Service"**
+
+Or via automation/script:
+```yaml
+service: caltrain_tracker.create_trip_sensor
+data:
+  origin: "San Antonio"
+  destination: "Palo Alto"
+  max_trips: 2
+```
+
+**See [docs/TRIP_SENSOR_SETUP.md](docs/TRIP_SENSOR_SETUP.md) for detailed instructions.**
+
 ### Example Trip Sensor
 
 **Entity:** `sensor.caltrain_trip_san_antonio_palo_alto`
