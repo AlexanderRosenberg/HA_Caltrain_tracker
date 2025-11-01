@@ -27,6 +27,13 @@ SERVICE_CREATE_TRIP_SENSOR_SCHEMA = vol.Schema({
 })
 
 
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Set up the Caltrain Tracker component."""
+    # This function is needed for services.yaml to be loaded
+    hass.data.setdefault(DOMAIN, {})
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Caltrain Tracker from a config entry."""
     coordinator = CaltrainDataCoordinator(hass, entry)
@@ -45,14 +52,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(entry.add_update_listener(async_update_options))
     
     # Register service to create trip sensors dynamically
-    async def handle_create_trip_sensor(call):
+    async def handle_create_trip_sensor(call: ServiceCall) -> None:
         """Handle create_trip_sensor service call - creates a new trip planning sensor."""
-        origin = call.data.get("origin")
-        destination = call.data.get("destination")
-        max_trips = call.data.get("max_trips", 2)
+        _LOGGER.debug(f"Service call data: {call.data}")
+        
+        # Validate the input data manually
+        try:
+            validated_data = SERVICE_CREATE_TRIP_SENSOR_SCHEMA(call.data)
+            origin = validated_data["origin"]
+            destination = validated_data["destination"]
+            max_trips = validated_data.get("max_trips", 2)
+        except vol.Invalid as err:
+            _LOGGER.error(f"Invalid service data: {err}")
+            raise
+        
+        _LOGGER.debug(f"Validated values - origin: {origin}, destination: {destination}, max_trips: {max_trips}")
         
         if not origin or not destination:
-            _LOGGER.error("Origin and destination are required")
+            _LOGGER.error(f"Origin and destination are required. Got origin={origin}, destination={destination}")
             return
         
         # Get the coordinator info from stored data
@@ -81,11 +98,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.info(f"Created trip sensor: {origin} to {destination}")
     
     # Register service for creating trip sensors
+    # Note: services.yaml provides the UI schema, this validates at runtime
     hass.services.async_register(
         DOMAIN,
         "create_trip_sensor",
         handle_create_trip_sensor,
-        schema=SERVICE_CREATE_TRIP_SENSOR_SCHEMA,
     )
     
     return True
