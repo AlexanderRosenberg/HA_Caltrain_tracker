@@ -4,9 +4,12 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
+import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
@@ -15,6 +18,13 @@ from .coordinator import CaltrainDataCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.DEVICE_TRACKER]
+
+# Service schema for create_trip_sensor
+SERVICE_CREATE_TRIP_SENSOR_SCHEMA = vol.Schema({
+    vol.Required("origin"): cv.string,
+    vol.Required("destination"): cv.string,
+    vol.Optional("max_trips", default=2): vol.All(vol.Coerce(int), vol.Range(min=1, max=5)),
+})
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -70,10 +80,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             
             _LOGGER.info(f"Created trip sensor: {origin} to {destination}")
     
+    # Register service for creating trip sensors
     hass.services.async_register(
         DOMAIN,
         "create_trip_sensor",
         handle_create_trip_sensor,
+        schema=SERVICE_CREATE_TRIP_SENSOR_SCHEMA,
     )
     
     return True
