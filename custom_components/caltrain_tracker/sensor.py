@@ -88,12 +88,12 @@ class CaltrainStationSensor(CoordinatorEntity, SensorEntity):
         self._attr_icon = "mdi:train"
 
     @property
-    def native_value(self) -> int | str | None:
+    def native_value(self) -> int | None:
         """Return the state of the sensor (minutes until next train)."""
         next_trains = self.coordinator.get_next_trains(self._stop_id, limit=1)
         
         if not next_trains:
-            return "No trains"
+            return None  # Return None instead of string when no trains
         
         return next_trains[0]["eta_minutes"]
 
@@ -180,7 +180,7 @@ class CaltrainTripSensor(CoordinatorEntity, SensorEntity):
         self._attr_icon = "mdi:train-car-passenger"
 
     @property
-    def native_value(self) -> int | str | None:
+    def native_value(self) -> int | None:
         """Return the state of the sensor (minutes until next departure)."""
         trips = self.coordinator.get_trip_options(
             self._origin,
@@ -189,7 +189,7 @@ class CaltrainTripSensor(CoordinatorEntity, SensorEntity):
         )
         
         if not trips:
-            return "No trips"
+            return None  # Return None instead of string when no trips
         
         return trips[0]['departure_in_minutes']
 

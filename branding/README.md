@@ -1,103 +1,81 @@
-# Branding Directory
+# Branding Assets
 
-This directory contains logo and branding assets for the Caltrain Tracker integration.
+This directory contains branding assets for the Caltrain Tracker integration.
 
-## Files
+## Logo Files
 
-### Original Logo
-- `logo_original.png` - Your original Caltrain Transit Tracker logo
-- **To add**: Save the logo from your message to this file
+The `branding/caltrain_tracker/` folder contains:
+- ✅ `icon.png` - 256x256 PNG logo for HACS repository listing
+- ✅ `logo.png` - Repository logo (same as icon.png)
+- ✅ `icon@2x.png` - High-resolution version for retina displays
 
-### Prepared Assets (to be created)
-- `icon.png` - 256x256 square icon for HACS/HA integration list
-- `icon@2x.png` - 512x512 hDPI version
-- `logo.png` - Landscape logo for integration details (optional)
-- `logo@2x.png` - hDPI landscape logo (optional)
+## Logo Locations
 
-## Quick Start
+HACS looks for logos in **two places**:
 
-1. **Save your logo**:
-   - Save the "TRANSIT TRACKER" logo image to `logo_original.png`
+### 1. Integration Icon (Shows in Home Assistant UI)
+**Location:** `custom_components/caltrain_tracker/icon.png`
+- ✅ Already exists
+- Used in: Settings → Devices & Services
+- Used in: Entity cards and dashboards
 
-2. **Resize for icon.png**:
+### 2. Repository Logo (Shows in HACS)
+**Location:** `branding/caltrain_tracker/icon.png`
+- ✅ Now created
+- Used in: HACS integration browser
+- Used in: HACS repository listing
+
+## How HACS Finds Logos
+
+1. **Automatic Discovery:**
+   - HACS scans `branding/{domain}/` folder
+   - Looks for `icon.png`, `logo.png`, or `icon@2x.png`
+   - No configuration needed in `hacs.json`
+
+2. **Requirements:**
+   - PNG format required
+   - Minimum size: 256x256 pixels
+   - Transparent background recommended
+   - File size: Under 100KB recommended
+   - Must be committed to git repository
+
+## Current Logo
+
+The Caltrain Tracker logo is:
+- Format: PNG
+- Size: 256x256 pixels
+- File size: ~57KB
+- Style: Transit Tracker icon
+
+## Updating the Logo
+
+To change the logo:
+
+1. **Replace both copies:**
    ```bash
-   # Using online tool (easiest):
-   # 1. Go to https://redketchup.io/image-resizer
-   # 2. Upload logo_original.png
-   # 3. Resize to 256x256 (square, crop if needed)
-   # 4. Download as icon.png
+   # Update integration icon
+   cp new_logo.png custom_components/caltrain_tracker/icon.png
    
-   # OR using ImageMagick (if installed):
-   cd branding
-   magick convert logo_original.png -resize 256x256 -gravity center -extent 256x256 icon.png
+   # Update HACS branding
+   cp new_logo.png branding/caltrain_tracker/icon.png
+   cp new_logo.png branding/caltrain_tracker/logo.png
+   cp new_logo.png branding/caltrain_tracker/icon@2x.png
    ```
 
-3. **Create hDPI version**:
+2. **Commit and push:**
    ```bash
-   # Online: Same tool, resize to 512x512
-   # OR
-   magick convert logo_original.png -resize 512x512 -gravity center -extent 512x512 icon@2x.png
+   git add custom_components/caltrain_tracker/icon.png
+   git add branding/caltrain_tracker/
+   git commit -m "Update logo"
+   git push
    ```
 
-4. **Optimize**:
-   ```bash
-   # Using TinyPNG: https://tinypng.com/
-   # Upload icon.png and icon@2x.png, download optimized versions
-   ```
+3. **Clear HACS cache (in Home Assistant):**
+   - Go to HACS → ⋮ (menu) → Custom repositories
+   - Or wait for HACS to refresh (up to 24 hours)
 
-## Submitting to Home Assistant Brands
+## No External Submission Needed
 
-See [BRANDING_GUIDE.md](../BRANDING_GUIDE.md) for complete instructions on:
-- Preparing logo files
-- Submitting to home-assistant/brands repository
-- Getting your logo to appear in HACS and HA settings
+✅ **This is a custom HACS repository** - no submission to Home Assistant Brands required!
 
-## Logo Design
-
-Your current logo features:
-- **Train icon**: Black/white silhouette in rounded square
-- **Caltrain circle**: Red circle with "Caltrain" text
-- **Title**: "TRANSIT TRACKER" in bold black letters
-
-**Design notes**:
-- High contrast (good for light backgrounds)
-- Clear branding (immediately recognizable)
-- Professional appearance
-
-**Suggestions**:
-- Ensure transparent background (not white)
-- Consider creating dark version for dark themes
-- Test visibility at small sizes (32x32, 48x48)
-
-## Testing Locally
-
-Before submitting to brands repository, test your icon:
-
-1. Copy to HA www folder:
-   ```bash
-   cp icon.png /path/to/homeassistant/config/www/caltrain_tracker_icon.png
-   ```
-
-2. Use in Lovelace card:
-   ```yaml
-   type: button
-   icon: /local/caltrain_tracker_icon.png
-   name: Test Icon
-   ```
-
-3. Check appearance:
-   - Light theme
-   - Dark theme
-   - Mobile view
-   - Different zoom levels
-
-## Resources
-
-- **Image Resizer**: https://redketchup.io/image-resizer
-- **PNG Optimizer**: https://tinypng.com/
-- **HA Brands Repo**: https://github.com/home-assistant/brands
-- **HACS Docs**: https://hacs.xyz/docs/publish/integration
-
----
-
-**Note**: Files in this directory are for development only. The official logo will be served from `brands.home-assistant.io` after submission.
+Custom repositories automatically use the logo from their own `branding/` folder.

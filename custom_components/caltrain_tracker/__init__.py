@@ -54,26 +54,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register service to create trip sensors dynamically
     async def handle_create_trip_sensor(call: ServiceCall) -> None:
         """Handle create_trip_sensor service call - creates a new trip planning sensor."""
-        _LOGGER.debug(f"Service call data: {call.data}")
-        
-        # Validate the input data manually
         try:
-            validated_data = SERVICE_CREATE_TRIP_SENSOR_SCHEMA(call.data)
-            origin = validated_data["origin"]
-            destination = validated_data["destination"]
-            max_trips = validated_data.get("max_trips", 2)
-        except vol.Invalid as err:
-            _LOGGER.error(f"Invalid service data: {err}")
-            raise
-        
-        _LOGGER.debug(f"Validated values - origin: {origin}, destination: {destination}, max_trips: {max_trips}")
-        
-        if not origin or not destination:
-            _LOGGER.error(f"Origin and destination are required. Got origin={origin}, destination={destination}")
-            return
-        
-        # Get the coordinator info from stored data
-        if "_coordinators" in hass.data[DOMAIN] and entry.entry_id in hass.data[DOMAIN]["_coordinators"]:
+            _LOGGER.debug(f"Service call data: {call.data}")
+            
+            # Validate the input data manually
+            try:
+                validated_data = SERVICE_CREATE_TRIP_SENSOR_SCHEMA(call.data)
+                origin = validated_data["origin"]
+                destination = validated_data["destination"]
+                max_trips = validated_data.get("max_trips", 2)
+            except vol.Invalid as err:
+                error_msg = f"Invalid service data: {err}"
+                _LOGGER.error(error_msg)
+                raise ValueError(error_msg) from err
+            
+            _LOGGER.debug(f"Validated values - origin: {origin}, destination: {destination}, max_trips: {max_trips}")
+            
+            if not origin or not destination:
+                error_msg = f"Origin and destination are required. Got origin={origin}, destination={destination}"
+                _LOGGER.error(error_msg)
+                raise ValueError(error_msg)
+            
+            # Get the coordinator info from stored data
+            if "_coordinators" not in hass.data.get(DOMAIN, {}):
+                error_msg = "No coordinators found. Integration may not be fully loaded."
+                _LOGGER.error(error_msg)
+                raise ValueError(error_msg)
+                
+            if entry.entry_id not in hass.data[DOMAIN]["_coordinators"]:
+                error_msg = f"Coordinator for entry {entry.entry_id} not found"
+                _LOGGER.error(error_msg)
+                raise ValueError(error_msg)
+                
             coordinator_info = hass.data[DOMAIN]["_coordinators"][entry.entry_id]
             coordinator = coordinator_info["coordinator"]
             add_entities = coordinator_info["add_entities"]
@@ -90,12 +102,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return
             
             # Create new trip sensor
+            _LOGGER.info(f"Creating trip sensor: {origin} to {destination} (max_trips={max_trips})")
             from .sensor import CaltrainTripSensor
             trip_sensor = CaltrainTripSensor(coordinator, origin, destination, max_trips)
             add_entities([trip_sensor])
             trip_sensors[sensor_key] = trip_sensor
             
-            _LOGGER.info(f"Created trip sensor: {origin} to {destination}")
+            _LOGGER.info(f"Successfully created trip sensor: sensor.caltrain_trip_{origin_id}_{dest_id}")
+            
+        except Exception as err:
+            _LOGGER.exception(f"Error creating trip sensor: {err}")
+            raise
     
     # Register service for creating trip sensors
     # Note: services.yaml provides the UI schema, this validates at runtime
