@@ -31,35 +31,16 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Caltrain Tracker component."""
     # This function is needed for services.yaml to be loaded
     hass.data.setdefault(DOMAIN, {})
-    return True
-
-
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Caltrain Tracker from a config entry."""
-    coordinator = CaltrainDataCoordinator(hass, entry)
     
-    # Fetch initial data
-    await coordinator.async_config_entry_first_refresh()
-    
-    # Store coordinator
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = coordinator
-    
-    # Setup platforms
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    
-    # Register update listener for options changes
-    entry.async_on_unload(entry.add_update_listener(async_update_options))
-    
-    # Register service to create trip sensors dynamically
+    # Register service at integration level (not per config entry)
     async def handle_create_trip_sensor(call: ServiceCall) -> None:
         """Handle create_trip_sensor service call - creates a new trip planning sensor."""
         try:
             _LOGGER.debug(f"Service call data: {call.data}")
             
-            # Validate the input data manually
+            # Validate the input data - convert ReadOnlyDict to regular dict first
             try:
-                validated_data = SERVICE_CREATE_TRIP_SENSOR_SCHEMA(call.data)
+                validated_data = SERVICE_CREATE_TRIP_SENSOR_SCHEMA(dict(call.data))
                 origin = validated_data["origin"]
                 destination = validated_data["destination"]
                 max_trips = validated_data.get("max_trips", 2)
@@ -75,18 +56,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.error(error_msg)
                 raise ValueError(error_msg)
             
-            # Get the coordinator info from stored data
+            # Find a coordinator from any config entry
             if "_coordinators" not in hass.data.get(DOMAIN, {}):
-                error_msg = "No coordinators found. Integration may not be fully loaded."
+                error_msg = "No coordinators found. Please set up the integration first."
                 _LOGGER.error(error_msg)
                 raise ValueError(error_msg)
-                
-            if entry.entry_id not in hass.data[DOMAIN]["_coordinators"]:
-                error_msg = f"Coordinator for entry {entry.entry_id} not found"
-                _LOGGER.error(error_msg)
-                raise ValueError(error_msg)
-                
-            coordinator_info = hass.data[DOMAIN]["_coordinators"][entry.entry_id]
+            
+            # Get the first available coordinator (they all share the same data)
+            entry_id = next(iter(hass.data[DOMAIN]["_coordinators"]))
+            coordinator_info = hass.data[DOMAIN]["_coordinators"][entry_id]
             coordinator = coordinator_info["coordinator"]
             add_entities = coordinator_info["add_entities"]
             trip_sensors = coordinator_info["trip_sensors"]
@@ -114,13 +92,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.exception(f"Error creating trip sensor: {err}")
             raise
     
-    # Register service for creating trip sensors
-    # Note: services.yaml provides the UI schema, this validates at runtime
+    # Register service - services.yaml will provide the UI fields
     hass.services.async_register(
         DOMAIN,
         "create_trip_sensor",
         handle_create_trip_sensor,
     )
+    
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Caltrain Tracker from a config entry."""
+    coordinator = CaltrainDataCoordinator(hass, entry)
+    
+    # Fetch initial data
+    await coordinator.async_config_entry_first_refresh()
+    
+    # Store coordinator
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = coordinator
+    
+    # Setup platforms
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    
+    # Register update listener for options changes
+    entry.async_on_unload(entry.add_update_listener(async_update_options))
     
     return True
 
